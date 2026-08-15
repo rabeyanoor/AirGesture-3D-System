@@ -68,11 +68,11 @@ def main():
         # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, raw_results = tracker.process(frame)
 
-        # Step 2: Finger Joint Air Typing & Closed Fist (✊ mut) Word Erase
+        norm_landmarks = None
         if raw_results and raw_results.multi_hand_landmarks:
             norm_landmarks = raw_results.multi_hand_landmarks[0].landmark
 
-            # 2a. Fist Gesture Word Erase (✊ mut)
+            # Step 2: Fist Gesture Word Erase (✊ mut)
             scribble.text_buffer, erased = knuckle_engine.check_word_erase(
                 norm_landmarks, scribble.text_buffer
             )
@@ -80,7 +80,7 @@ def main():
                 cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 120, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
 
-            # 2b. Direct Finger Joint Touch Air Typing
+            # Step 3: Finger Joint Air Typing
             char, touch_pt = knuckle_engine.detect_finger_joint_typing(norm_landmarks)
             if char is not None:
                 scribble.text_buffer += char
@@ -92,14 +92,14 @@ def main():
                 cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
 
-        # Step 3: Handle Toolbar Interaction
+        # Step 4: Handle 5-Finger Open Hand Sidebar Trigger & Interaction
         active_mode, light_on, quit_signal = ui.check_interaction(
-            frame, landmarks_list, w, h, active_mode, light_on
+            frame, landmarks_list, norm_landmarks, w, h, active_mode, light_on
         )
         if quit_signal:
             break
 
-        # Step 4: Execute Selected Mode
+        # Step 5: Execute Selected Mode
         if active_mode == "WRITE":
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
@@ -107,10 +107,10 @@ def main():
             # WIREFRAME Mode: Clean 3D Mesh & Coordinates matching video 0:00 to 0:09
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 5: Render Dynamic Sidebar
+        # Step 6: Render Dynamic Sidebar ONLY when sidebar_visible == True
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Step 6: Render Top-Left ( 28 FPS ) Capsule Badge
+        # Step 7: Render Top-Left ( 28 FPS ) Capsule Badge
         ui.draw_top_fps_badge(frame, fps)
 
         cv2.imshow(WINDOW_TITLE, frame)

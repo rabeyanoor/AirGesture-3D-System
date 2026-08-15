@@ -10,6 +10,21 @@ class UIManager:
         self.dwell_time = 0.45
         self.sidebar_visible = False
 
+    def is_5_fingers_open(self, norm_landmarks):
+        """
+        Detects 5-finger open hand gesture.
+        Checks if index, middle, ring, pinky finger tips are extended upwards.
+        """
+        if not norm_landmarks or len(norm_landmarks) < 21:
+            return False
+
+        index_open = norm_landmarks[8].y < norm_landmarks[6].y
+        middle_open = norm_landmarks[12].y < norm_landmarks[10].y
+        ring_open = norm_landmarks[16].y < norm_landmarks[14].y
+        pinky_open = norm_landmarks[20].y < norm_landmarks[18].y
+
+        return index_open and middle_open and ring_open and pinky_open
+
     def draw_top_fps_badge(self, img, fps):
         """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
         badge_str = f"{fps} FPS"
@@ -21,9 +36,9 @@ class UIManager:
 
     def draw_right_toolbar(self, img, active_mode, light_on):
         """
-        Draws right vertical translucent toolbar panel when visible or active in WRITE mode.
+        Draws right vertical translucent toolbar panel ONLY when sidebar_visible is True.
         """
-        if not self.sidebar_visible and active_mode != "WRITE":
+        if not self.sidebar_visible:
             return
 
         h, w, _ = img.shape
@@ -116,13 +131,18 @@ class UIManager:
             {"name": "POWER", "rect": (bx1, py1 + 210, bx1 + bw, py1 + 210 + bh)},
         ]
 
-    def check_interaction(self, img, landmarks_list, w, h, active_mode, light_on):
+    def check_interaction(self, img, landmarks_list, norm_landmarks, w, h, active_mode, light_on):
         """
-        Maintains persistent notebook & toolbar state when WRITE mode is active.
+        1. Triggers sidebar when 5-finger open hand is brought to right side (x > w * 0.82).
+        2. Handles hover dwell selection on sidebar buttons.
         """
-        # In WRITE mode, keep toolbar persistent
-        if active_mode == "WRITE":
-            self.sidebar_visible = True
+        if norm_landmarks and self.is_5_fingers_open(norm_landmarks):
+            index_x = norm_landmarks[8].x
+            if index_x > 0.82:
+                self.sidebar_visible = True
+
+        if not self.sidebar_visible and active_mode != "WRITE":
+            return active_mode, light_on, False
 
         if not landmarks_list:
             self.hover_start_time = None
@@ -131,13 +151,6 @@ class UIManager:
 
         index_pt = landmarks_list[0][8][:2]
         ix, iy = index_pt
-
-        # Gesture Trigger: Pointing index finger to right edge (x > w * 0.85) reveals sidebar
-        if ix > int(w * 0.85):
-            self.sidebar_visible = True
-
-        if not self.sidebar_visible and active_mode != "WRITE":
-            return active_mode, light_on, False
 
         buttons = self.get_button_rects(w, h)
         hovered_now = None
@@ -164,7 +177,7 @@ class UIManager:
                     elif hovered_now == "LIGHT":
                         light_on = not light_on
                     elif hovered_now == "POWER":
-                        quit_signal = True
+                        self.sidebar_visible = False
                     self.hover_start_time = time.time() + 0.5
             else:
                 self.hovered_button = hovered_now
