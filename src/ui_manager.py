@@ -72,7 +72,7 @@ class UIManager:
             elif name == "POWER":
                 # Power Icon ⏻ matching user attachment (circle with top vertical stroke)
                 icon_col = (180, 40, 40)
-                cv2.ellipse(img, (cx, cy + 3), (14, 14), 0, 45, 315, icon_col, 2, cv2.LINE_AA)
+                cv2.ellipse(img, (cx, cy + 3), (13, 13), 0, 45, 315, icon_col, 2, cv2.LINE_AA)
                 cv2.line(img, (cx, cy - 13), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
 
     def draw_notepad_card(self, img, text_content=""):
@@ -99,11 +99,11 @@ class UIManager:
             lines_y.append(y)
 
         # Render Text onto Notepad Lines
-        display_str = text_content if text_content else "Notepad: Touch finger joints to write..."
-        text_color = (20, 20, 20) if text_content else (120, 120, 120)
+        display_str = text_content if text_content else "Hello World"
+        text_color = (20, 20, 20)
         first_line_y = lines_y[0] - 6
         cv2.putText(img, display_str, (nx1 + 30, first_line_y), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, text_color, 2, cv2.LINE_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2, cv2.LINE_AA)
 
     def get_button_rects(self, w, h):
         panel_h = 340
@@ -163,8 +163,8 @@ class UIManager:
                     elif hovered_now == "LIGHT":
                         light_on = not light_on
                     elif hovered_now == "POWER":
+                        active_mode = "WIREFRAME"
                         self.sidebar_visible = False
-                        quit_signal = True
                     self.hover_start_time = time.time() + 0.5
             else:
                 self.hovered_button = hovered_now

@@ -79,10 +79,10 @@ class KnuckleGestureEngine:
         # Determine threshold dynamically based on coordinate scale (normalized vs pixels)
         if hand_scale > 10.0:
             # Pixel space coordinates (e.g. 1280x720)
-            touch_threshold = max(40.0, 0.45 * hand_scale)
+            touch_threshold = max(45.0, 0.50 * hand_scale)
         else:
             # Normalized float coordinates [0.0, 1.0]
-            touch_threshold = max(0.08, 0.45 * hand_scale)
+            touch_threshold = max(0.09, 0.50 * hand_scale)
 
         thumb_tip = extract_xy(landmarks[4])
         index_tip = extract_xy(landmarks[8])

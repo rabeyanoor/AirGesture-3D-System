@@ -42,6 +42,10 @@ def main():
     ui = UIManager()
     knuckle_engine = KnuckleGestureEngine(cooldown=0.35)
 
+    # Initialize text buffer with default text matching notepad lines
+    if not scribble.text_buffer:
+        scribble.text_buffer = "Hello World"
+
     # Default to WRITE mode so Notepad paper lines are active immediately!
     active_mode = "WRITE"
     ui.sidebar_visible = True
