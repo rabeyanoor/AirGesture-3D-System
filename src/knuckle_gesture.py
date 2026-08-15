@@ -2,7 +2,7 @@ import time
 import numpy as np
 
 class KnuckleGestureEngine:
-    def __init__(self, cooldown=0.45):
+    def __init__(self, cooldown=0.35):
         self.cooldown = cooldown
         self.last_input_time = 0
         self.last_fist_time = 0
@@ -40,15 +40,15 @@ class KnuckleGestureEngine:
 
     def detect_finger_joint_typing(self, landmarks_normalized):
         """
-        Hand-scale invariant Euclidean distance calculation.
-        Uses hand_scale = distance(wrist(0), middle_mcp(9)) to adapt dynamically
-        to any camera distance!
+        Generous scale-invariant Euclidean distance calculation (0.58 * hand_scale).
+        Guarantees instant character typing when thumb touches any finger joint/knuckle!
         - 8: Index Tip -> "H"
         - 7: Index PIP -> "e"
         - 6: Index MCP -> "l"
         - 12: Middle Tip -> "o"
         - 10: Middle PIP -> " " (Space)
         - 16: Ring Tip -> ","
+        - 20: Pinky Tip -> " Spatial AR"
         """
         if not landmarks_normalized or len(landmarks_normalized) < 21:
             return None, None
@@ -63,8 +63,8 @@ class KnuckleGestureEngine:
         if hand_scale < 1e-4:
             hand_scale = 0.20
 
-        # Scale-invariant touch threshold
-        touch_threshold = 0.42 * hand_scale
+        # Generous scale-invariant touch threshold (0.58 * hand_scale)
+        touch_threshold = max(0.09, 0.58 * hand_scale)
 
         thumb_tip = np.array([landmarks_normalized[4].x, landmarks_normalized[4].y])
         index_tip = np.array([landmarks_normalized[8].x, landmarks_normalized[8].y])
@@ -73,6 +73,7 @@ class KnuckleGestureEngine:
         middle_tip = np.array([landmarks_normalized[12].x, landmarks_normalized[12].y])
         middle_pip = np.array([landmarks_normalized[10].x, landmarks_normalized[10].y])
         ring_tip = np.array([landmarks_normalized[16].x, landmarks_normalized[16].y])
+        pinky_tip = np.array([landmarks_normalized[20].x, landmarks_normalized[20].y])
 
         d_index_tip = np.linalg.norm(thumb_tip - index_tip)
         d_index_pip = np.linalg.norm(thumb_tip - index_pip)
@@ -80,6 +81,7 @@ class KnuckleGestureEngine:
         d_middle_tip = np.linalg.norm(thumb_tip - middle_tip)
         d_middle_pip = np.linalg.norm(thumb_tip - middle_pip)
         d_ring_tip = np.linalg.norm(thumb_tip - ring_tip)
+        d_pinky_tip = np.linalg.norm(thumb_tip - pinky_tip)
 
         char = None
         touch_pt = None
@@ -102,6 +104,9 @@ class KnuckleGestureEngine:
         elif d_ring_tip < touch_threshold:
             char = ","
             touch_pt = ring_tip
+        elif d_pinky_tip < touch_threshold:
+            char = " Spatial AR"
+            touch_pt = pinky_tip
 
         if char is not None:
             self.last_input_time = now

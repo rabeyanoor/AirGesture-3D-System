@@ -98,11 +98,12 @@ class UIManager:
             cv2.line(img, (nx1 + 20, y), (nx2 - 20, y), (220, 220, 220), 1, cv2.LINE_AA)
             lines_y.append(y)
 
-        # Render Dynamic Text onto Notepad Lines
-        if text_content:
-            first_line_y = lines_y[0] - 6
-            cv2.putText(img, text_content, (nx1 + 30, first_line_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (20, 20, 20), 2, cv2.LINE_AA)
+        # Render Text onto Notepad Lines
+        display_str = text_content if text_content else "Notepad: Touch finger joints to write..."
+        text_color = (20, 20, 20) if text_content else (120, 120, 120)
+        first_line_y = lines_y[0] - 6
+        cv2.putText(img, display_str, (nx1 + 30, first_line_y), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, text_color, 2, cv2.LINE_AA)
 
     def get_button_rects(self, w, h):
         panel_h = 340
