@@ -52,15 +52,11 @@ def main():
     wireframe = WireframeEngine()
     ocr = OCREngine()
     ui = UIManager()
-    knuckle_engine = KnuckleGestureEngine(cooldown=0.35)
+    knuckle_engine = KnuckleGestureEngine(cooldown=0.5)
 
-    # Initialize text buffer with default text matching notepad lines
-    if not scribble.text_buffer:
-        scribble.text_buffer = "Hello World"
-
-    # Default to WRITE mode so Notepad paper lines are active immediately!
-    active_mode = "WRITE"
-    ui.sidebar_visible = True
+    # *** START IN WIREFRAME MODE — no sidebar, no notepad (matching video 0:00-0:09) ***
+    active_mode = "WIREFRAME"
+    ui.sidebar_visible = False
     light_on = False
 
     fps_eval_time = time.time()
@@ -98,8 +94,9 @@ def main():
             if not target_landmarks:
                 target_landmarks = norm_landmarks
 
-        if target_landmarks:
-            # Step 2: Fist Gesture Word Erase (✊ mut)
+        # Step 2: Only process typing/erase when WRITE mode is active
+        if target_landmarks and active_mode == "WRITE":
+            # 2a. Fist Gesture Word Erase (✊ mut)
             scribble.text_buffer, erased = knuckle_engine.check_word_erase(
                 target_landmarks, scribble.text_buffer
             )
@@ -107,13 +104,11 @@ def main():
                 cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 120, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
 
-            # Step 3: Direct Finger Joint Touch Air Typing
+            # 2b. Finger Joint Touch Air Typing
             char, touch_pt = knuckle_engine.detect_finger_joint_typing(target_landmarks)
             if char is not None:
-                active_mode = "WRITE"
-                ui.sidebar_visible = True
                 scribble.text_buffer += char
-                print(f"Typed Character: '{char}' -> Current Notepad Buffer: '{scribble.text_buffer}'")
+                print(f"Typed: '{char}' -> Buffer: '{scribble.text_buffer}'")
 
             if touch_pt is not None:
                 px, py = int(touch_pt[0]), int(touch_pt[1])
@@ -123,24 +118,25 @@ def main():
                 cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 255), 2, cv2.LINE_AA)
 
-        # Step 4: Handle Toolbar Interaction
+        # Step 3: Handle Toolbar Interaction (sidebar trigger + button hover)
         active_mode, light_on, quit_signal = ui.check_interaction(
             frame, landmarks_list, norm_landmarks, w, h, active_mode, light_on
         )
         if quit_signal:
             break
 
-        # Step 5: Execute Selected Mode
+        # Step 4: Execute Selected Mode
         if active_mode == "WRITE":
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
         else:
+            # WIREFRAME Mode: Clean 3D Mesh (matching video images 1 & 4)
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 6: Render Dynamic Sidebar
+        # Step 5: Render Dynamic Sidebar (only when sidebar_visible == True)
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Step 7: Render Top-Left ( 28 FPS ) Capsule Badge
+        # Step 6: FPS Badge
         ui.draw_top_fps_badge(frame, fps)
 
         cv2.imshow(WINDOW_TITLE, frame)

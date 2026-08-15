@@ -10,15 +10,16 @@ def extract_xy(lm):
     return np.array([0.0, 0.0], dtype=np.float32)
 
 class KnuckleGestureEngine:
-    def __init__(self, cooldown=0.35):
+    def __init__(self, cooldown=0.5):
         self.cooldown = cooldown
         self.last_input_time = 0
         self.last_fist_time = 0
+        self.last_char = None
 
     def is_fist_gesture(self, landmarks):
         """
         Detects Closed Fist Gesture (✊ mut).
-        Checks if index, middle, ring, pinky tips are folded down towards palm.
+        All 4 finger tips must be BELOW their respective PIP joints.
         """
         if not landmarks or len(landmarks) < 21:
             return False
@@ -44,7 +45,7 @@ class KnuckleGestureEngine:
         """
         now = time.time()
         if self.is_fist_gesture(landmarks):
-            if now - self.last_fist_time > self.cooldown:
+            if now - self.last_fist_time > 0.7:
                 self.last_fist_time = now
                 words = text_buffer.strip().split()
                 if words:
@@ -56,14 +57,19 @@ class KnuckleGestureEngine:
 
     def detect_finger_joint_typing(self, landmarks):
         """
-        Ultra-robust finger joint typing engine. Supports both pixel tuples and normalized landmark objects!
-        - 8: Index Tip -> "H"
-        - 7: Index PIP -> "e"
-        - 6: Index MCP -> "l"
-        - 12: Middle Tip -> "o"
-        - 10: Middle PIP -> " " (Space)
-        - 16: Ring Tip -> ","
-        - 20: Pinky Tip -> " Spatial AR"
+        TIGHT threshold finger joint typing — only deliberate thumb-to-joint
+        pinch triggers a character. Normal open hand will NOT trigger.
+
+        Uses 0.18 * hand_scale as threshold. For a typical hand_scale of ~0.30,
+        this gives ~0.054 — only a real pinch/touch reaches this distance.
+
+        Mapping:
+        - Thumb Tip (4) + Index Tip (8)   -> "H"
+        - Thumb Tip (4) + Index PIP (7)   -> "e"
+        - Thumb Tip (4) + Index MCP (6)   -> "l"
+        - Thumb Tip (4) + Middle Tip (12) -> "o"
+        - Thumb Tip (4) + Middle PIP (10) -> " " (Space)
+        - Thumb Tip (4) + Ring Tip (16)   -> ","
         """
         if not landmarks or len(landmarks) < 21:
             return None, None
@@ -76,13 +82,13 @@ class KnuckleGestureEngine:
         middle_mcp = extract_xy(landmarks[9])
         hand_scale = np.linalg.norm(wrist - middle_mcp)
 
-        # Determine threshold dynamically based on coordinate scale (normalized vs pixels)
+        # TIGHT threshold: only deliberate pinch (thumb touching joint) triggers
         if hand_scale > 10.0:
-            # Pixel space coordinates (e.g. 1280x720)
-            touch_threshold = max(45.0, 0.50 * hand_scale)
+            # Pixel space (e.g. 1280x720)
+            touch_threshold = max(25.0, 0.18 * hand_scale)
         else:
-            # Normalized float coordinates [0.0, 1.0]
-            touch_threshold = max(0.09, 0.50 * hand_scale)
+            # Normalized [0.0, 1.0]
+            touch_threshold = max(0.035, 0.18 * hand_scale)
 
         thumb_tip = extract_xy(landmarks[4])
         index_tip = extract_xy(landmarks[8])
@@ -91,42 +97,30 @@ class KnuckleGestureEngine:
         middle_tip = extract_xy(landmarks[12])
         middle_pip = extract_xy(landmarks[10])
         ring_tip = extract_xy(landmarks[16])
-        pinky_tip = extract_xy(landmarks[20])
 
-        d_index_tip = np.linalg.norm(thumb_tip - index_tip)
-        d_index_pip = np.linalg.norm(thumb_tip - index_pip)
-        d_index_mcp = np.linalg.norm(thumb_tip - index_mcp)
-        d_middle_tip = np.linalg.norm(thumb_tip - middle_tip)
-        d_middle_pip = np.linalg.norm(thumb_tip - middle_pip)
-        d_ring_tip = np.linalg.norm(thumb_tip - ring_tip)
-        d_pinky_tip = np.linalg.norm(thumb_tip - pinky_tip)
+        # Calculate all distances
+        distances = [
+            (np.linalg.norm(thumb_tip - index_tip),  "H", index_tip),
+            (np.linalg.norm(thumb_tip - index_pip),   "e", index_pip),
+            (np.linalg.norm(thumb_tip - index_mcp),   "l", index_mcp),
+            (np.linalg.norm(thumb_tip - middle_tip),  "o", middle_tip),
+            (np.linalg.norm(thumb_tip - middle_pip),  " ", middle_pip),
+            (np.linalg.norm(thumb_tip - ring_tip),    ",", ring_tip),
+        ]
 
-        char = None
-        touch_pt = None
+        # Find the closest joint
+        distances.sort(key=lambda x: x[0])
+        closest_dist, closest_char, closest_pt = distances[0]
 
-        if d_index_tip < touch_threshold:
-            char = "H"
-            touch_pt = index_tip
-        elif d_index_pip < touch_threshold:
-            char = "e"
-            touch_pt = index_pip
-        elif d_index_mcp < touch_threshold:
-            char = "l"
-            touch_pt = index_mcp
-        elif d_middle_tip < touch_threshold:
-            char = "o"
-            touch_pt = middle_tip
-        elif d_middle_pip < touch_threshold:
-            char = " "
-            touch_pt = middle_pip
-        elif d_ring_tip < touch_threshold:
-            char = ","
-            touch_pt = ring_tip
-        elif d_pinky_tip < touch_threshold:
-            char = " Spatial AR"
-            touch_pt = pinky_tip
-
-        if char is not None:
+        if closest_dist < touch_threshold:
+            # Prevent same character from repeating if finger stays touching
+            if closest_char == self.last_char:
+                return None, None
+            self.last_char = closest_char
             self.last_input_time = now
+            return closest_char, closest_pt
+        else:
+            # Finger lifted — allow same char to be typed again next pinch
+            self.last_char = None
 
-        return char, touch_pt
+        return None, None
