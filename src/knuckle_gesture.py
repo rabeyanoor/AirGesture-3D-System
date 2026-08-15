@@ -2,70 +2,100 @@ import time
 import numpy as np
 
 class KnuckleGestureEngine:
-    def __init__(self, touch_threshold=35, cooldown=0.45):
+    def __init__(self, touch_threshold=0.055, cooldown=0.6):
         self.touch_threshold = touch_threshold
         self.cooldown = cooldown
         self.last_input_time = 0
         self.last_fist_time = 0
 
-    def is_fist_gesture(self, hand_landmarks):
+    def is_fist_gesture(self, landmarks_normalized):
         """
-        Detects Closed Fist Gesture (✊ mut).
+        Detects Closed Fist Gesture (✊ mut) using normalized MediaPipe landmarks.
         Checks if index, middle, ring, pinky tips are folded down towards palm.
         """
-        if not hand_landmarks or len(hand_landmarks) < 21:
+        if not landmarks_normalized or len(landmarks_normalized) < 21:
             return False
 
-        # Tips vs PIP/MCP joints
-        index_folded = hand_landmarks[8][1] > hand_landmarks[6][1]
-        middle_folded = hand_landmarks[12][1] > hand_landmarks[10][1]
-        ring_folded = hand_landmarks[16][1] > hand_landmarks[14][1]
-        pinky_folded = hand_landmarks[20][1] > hand_landmarks[18][1]
+        # Landmark Y coordinates (in normalized [0, 1] space, Y grows downwards)
+        index_folded = landmarks_normalized[8].y > landmarks_normalized[6].y
+        middle_folded = landmarks_normalized[12].y > landmarks_normalized[10].y
+        ring_folded = landmarks_normalized[16].y > landmarks_normalized[14].y
+        pinky_folded = landmarks_normalized[20].y > landmarks_normalized[18].y
 
         return index_folded and middle_folded and ring_folded and pinky_folded
 
-    def check_word_erase(self, hand_landmarks, text_buffer):
+    def check_word_erase(self, landmarks_normalized, text_buffer):
         """
         If Closed Fist (✊ mut) is detected, erases one word from text_buffer.
-        Clenching fist twice (dubar mut) erases two words.
         """
         now = time.time()
-        if self.is_fist_gesture(hand_landmarks):
+        if self.is_fist_gesture(landmarks_normalized):
             if now - self.last_fist_time > self.cooldown:
                 self.last_fist_time = now
                 words = text_buffer.strip().split()
                 if words:
                     words.pop()
                     return " ".join(words), True
+                elif text_buffer:
+                    return "", True
         return text_buffer, False
 
-    def detect_knuckle_touch(self, hand_landmarks):
+    def detect_finger_joint_typing(self, landmarks_normalized):
         """
-        Calculates Euclidean distance between Thumb Tip (Landmark 4) and index/middle joints.
+        Normalized Euclidean distance calculation between Thumb Tip (4) and finger joints:
+        - 8: Index Tip -> "H"
+        - 7: Index PIP -> "e"
+        - 6: Index MCP -> "l"
+        - 12: Middle Tip -> "o"
+        - 10: Middle PIP -> " " (Space)
+        - 16: Ring Tip -> ","
         """
-        if not hand_landmarks or len(hand_landmarks) < 21:
-            return None
-
-        thumb_tip = np.array(hand_landmarks[4][:2])
-        index_tip = np.array(hand_landmarks[8][:2])
-        index_pip = np.array(hand_landmarks[6][:2])
-        index_mcp = np.array(hand_landmarks[5][:2])
-        middle_tip = np.array(hand_landmarks[12][:2])
-
-        dist_idx_pip = np.linalg.norm(thumb_tip - index_pip)
-        dist_idx_mcp = np.linalg.norm(thumb_tip - index_mcp)
-        dist_mid_tip = np.linalg.norm(thumb_tip - middle_tip)
+        if not landmarks_normalized or len(landmarks_normalized) < 21:
+            return None, None
 
         now = time.time()
         if now - self.last_input_time < self.cooldown:
-            return None
+            return None, None
+
+        thumb_tip = np.array([landmarks_normalized[4].x, landmarks_normalized[4].y])
+        index_tip = np.array([landmarks_normalized[8].x, landmarks_normalized[8].y])
+        index_pip = np.array([landmarks_normalized[7].x, landmarks_normalized[7].y])
+        index_mcp = np.array([landmarks_normalized[6].x, landmarks_normalized[6].y])
+        middle_tip = np.array([landmarks_normalized[12].x, landmarks_normalized[12].y])
+        middle_pip = np.array([landmarks_normalized[10].x, landmarks_normalized[10].y])
+        ring_tip = np.array([landmarks_normalized[16].x, landmarks_normalized[16].y])
+
+        # Distance calculations in normalized [0, 1] space
+        d_index_tip = np.linalg.norm(thumb_tip - index_tip)
+        d_index_pip = np.linalg.norm(thumb_tip - index_pip)
+        d_index_mcp = np.linalg.norm(thumb_tip - index_mcp)
+        d_middle_tip = np.linalg.norm(thumb_tip - middle_tip)
+        d_middle_pip = np.linalg.norm(thumb_tip - middle_pip)
+        d_ring_tip = np.linalg.norm(thumb_tip - ring_tip)
 
         char = None
-        if dist_idx_pip < self.touch_threshold:
+        touch_pt = None
+
+        if d_index_tip < self.touch_threshold:
+            char = "H"
+            touch_pt = index_tip
+        elif d_index_pip < self.touch_threshold:
+            char = "e"
+            touch_pt = index_pip
+        elif d_index_mcp < self.touch_threshold:
+            char = "l"
+            touch_pt = index_mcp
+        elif d_middle_tip < self.touch_threshold:
+            char = "o"
+            touch_pt = middle_tip
+        elif d_middle_pip < self.touch_threshold:
             char = " "
-            self.last_input_time = now
-        elif dist_idx_mcp < self.touch_threshold:
-            char = "BACKSPACE"
+            touch_pt = middle_pip
+        elif d_ring_tip < self.touch_threshold:
+            char = ","
+            touch_pt = ring_tip
+
+        if char is not None:
             self.last_input_time = now
 
-        return char
+        return char, touch_pt

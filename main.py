@@ -40,7 +40,7 @@ def main():
     wireframe = WireframeEngine()
     ocr = OCREngine()
     ui = UIManager()
-    knuckle_engine = KnuckleGestureEngine()
+    knuckle_engine = KnuckleGestureEngine(touch_threshold=0.055, cooldown=0.6)
 
     active_mode = "WIREFRAME"
     light_on = False
@@ -66,28 +66,33 @@ def main():
         fps_eval_time = curr_time
 
         # Step 1: Process Hand Tracking
-        landmarks_list, handedness_list, _ = tracker.process(frame)
+        landmarks_list, handedness_list, raw_results = tracker.process(frame)
 
-        # Step 2: Fist Gesture Word Erase (✊ mut) & Knuckle Touch Controls
-        if landmarks_list:
-            hand_landmarks = landmarks_list[0]
-            
-            # Check Fist Gesture (✊ mut) to erase one word per fist clench
+        # Step 2: Finger Joint Air Typing & Closed Fist (✊ mut) Word Erase
+        if raw_results and raw_results.multi_hand_landmarks:
+            norm_landmarks = raw_results.multi_hand_landmarks[0].landmark
+
+            # 2a. Fist Gesture Word Erase (✊ mut)
             scribble.text_buffer, erased = knuckle_engine.check_word_erase(
-                hand_landmarks, scribble.text_buffer
+                norm_landmarks, scribble.text_buffer
             )
             if erased:
-                # Show visual feedback for word erasure
-                cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 100, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+                cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 120, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
 
-            knuckle_cmd = knuckle_engine.detect_knuckle_touch(hand_landmarks)
-            if knuckle_cmd == " ":
-                scribble.text_buffer += " "
-            elif knuckle_cmd == "BACKSPACE" and len(scribble.text_buffer) > 0:
-                scribble.text_buffer = scribble.text_buffer[:-1]
+            # 2b. Direct Finger Joint Touch Air Typing
+            char, touch_pt = knuckle_engine.detect_finger_joint_typing(norm_landmarks)
+            if char is not None:
+                scribble.text_buffer += char
+                print(f"Direct Finger Joint Typed: '{char}' -> Current Notepad Buffer: '{scribble.text_buffer}'")
 
-        # Step 3: Handle Gesture Triggering & Toolbar Interaction
+            if touch_pt is not None:
+                px, py = int(touch_pt[0] * w), int(touch_pt[1] * h)
+                cv2.circle(frame, (px, py), 12, (0, 255, 255), -1, cv2.LINE_AA)
+                cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+
+        # Step 3: Handle Toolbar Interaction
         active_mode, light_on, quit_signal = ui.check_interaction(
             frame, landmarks_list, w, h, active_mode, light_on
         )
@@ -102,7 +107,7 @@ def main():
             # WIREFRAME Mode: Clean 3D Mesh & Coordinates matching video 0:00 to 0:09
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 5: Render Dynamic Sidebar (ONLY when sidebar_visible == True)
+        # Step 5: Render Dynamic Sidebar
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
         # Step 6: Render Top-Left ( 28 FPS ) Capsule Badge
