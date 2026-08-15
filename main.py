@@ -15,6 +15,7 @@ from src.air_scribble import AirScribble
 from src.wireframe_engine import WireframeEngine
 from src.ocr_engine import OCREngine
 from src.ui_manager import UIManager
+from src.knuckle_gesture import KnuckleGestureEngine
 from src.config import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
 
 def main():
@@ -39,9 +40,11 @@ def main():
     wireframe = WireframeEngine()
     ocr = OCREngine()
     ui = UIManager()
+    knuckle_engine = KnuckleGestureEngine()
 
     active_mode = "WIREFRAME"
     light_on = False
+    last_ocr_time = time.time()
 
     fps_eval_time = time.time()
     fps = 30
@@ -66,26 +69,44 @@ def main():
         # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
-        # Step 2: Handle Gesture Triggering & Interaction
+        # Step 2: Knuckle / Joint Micro-Gesture Detection
+        if landmarks_list:
+            knuckle_cmd = knuckle_engine.detect_knuckle_touch(landmarks_list[0])
+            if knuckle_cmd == " ":
+                scribble.text_buffer += " "
+            elif knuckle_cmd == "BACKSPACE" and len(scribble.text_buffer) > 0:
+                scribble.text_buffer = scribble.text_buffer[:-1]
+
+        # Step 3: Handle Gesture Triggering & Interaction
         active_mode, light_on, quit_signal = ui.check_interaction(
             frame, landmarks_list, w, h, active_mode, light_on
         )
         if quit_signal:
             break
 
-        # Step 3: Execute Selected Mode
+        # Step 4: Execute Selected Mode
         if active_mode == "WRITE":
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
             frame = scribble.merge_with_frame(frame)
+
+            # Auto OCR trigger when stroke finishes and user pauses writing (0.8s pause)
+            if scribble.stroke_points and not scribble.is_pinching:
+                if curr_time - scribble.last_draw_time > 0.8 and curr_time - last_ocr_time > 1.2:
+                    text_results = ocr.recognize(scribble.canvas)
+                    if text_results:
+                        recognized_str = " ".join(text_results)
+                        if recognized_str not in scribble.text_buffer:
+                            scribble.text_buffer += " " + recognized_str if scribble.text_buffer else recognized_str
+                        last_ocr_time = curr_time
         else:
             # WIREFRAME Mode: Clean 3D Mesh & Coordinates matching video 0:00 to 0:09
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 4: Render Dynamic Sidebar (ONLY when sidebar_visible == True)
+        # Step 5: Render Dynamic Sidebar (ONLY when sidebar_visible == True)
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Step 5: Render Top-Left ( 28 FPS ) Capsule Badge
+        # Step 6: Render Top-Left ( 28 FPS ) Capsule Badge
         ui.draw_top_fps_badge(frame, fps)
 
         cv2.imshow(WINDOW_TITLE, frame)

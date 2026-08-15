@@ -1,4 +1,5 @@
 import cv2
+import time
 import numpy as np
 
 class AirScribble:
@@ -9,12 +10,13 @@ class AirScribble:
         self.pinch_thresh = pinch_thresh
         self.text_buffer = ""
         self.is_pinching = False
-        self.last_stroke_time = 0
+        self.last_draw_time = 0
+        self.stroke_points = []
 
     def update(self, frame, landmarks_list):
         """
-        Processes hand gestures for dynamic air-writing.
-        Pinching index + thumb draws stroke. When pinch releases, stroke is recorded.
+        Processes air scribble strokes. Pinching index + thumb (Landmark 4 & 8)
+        traces continuous ink lines onto the canvas.
         """
         h, w, _ = frame.shape
         if self.canvas is None:
@@ -31,15 +33,16 @@ class AirScribble:
 
         distance = np.hypot(index_tip[0] - thumb_tip[0], index_tip[1] - thumb_tip[1])
 
-        # Active Ink Drawing ONLY when Pinching (Index + Thumb touching)
         if distance < self.pinch_thresh:
             self.is_pinching = True
+            self.last_draw_time = time.time()
             if self.prev_x == 0 and self.prev_y == 0:
                 self.prev_x, self.prev_y = index_tip
 
             # Draw ink line segment
             cv2.line(self.canvas, (self.prev_x, self.prev_y), index_tip, (30, 30, 30), 4, cv2.LINE_AA)
             self.prev_x, self.prev_y = index_tip
+            self.stroke_points.append(index_tip)
 
             # Active red indicator dot on pinch point
             cv2.circle(frame, index_tip, 6, (0, 0, 255), -1, cv2.LINE_AA)
@@ -53,6 +56,7 @@ class AirScribble:
         if self.canvas is not None:
             self.canvas.fill(0)
         self.text_buffer = ""
+        self.stroke_points = []
 
     def merge_with_frame(self, frame):
         if self.canvas is None:
