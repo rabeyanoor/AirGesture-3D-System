@@ -8,9 +8,10 @@ class UIManager:
         self.hover_start_time = None
         self.hovered_button = None
         self.dwell_time = 0.45
+        self.sidebar_visible = False  # Initially Hidden matching video 0:09s
 
     def draw_top_fps_badge(self, img, fps):
-        """Draws top-left rounded FPS capsule badge matching image 2 (e.g. 28 FPS)."""
+        """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
         badge_str = f"{fps} FPS"
         overlay = img.copy()
         cv2.rectangle(overlay, (25, 22), (110, 58), (50, 50, 50), -1)
@@ -20,8 +21,11 @@ class UIManager:
 
     def draw_right_toolbar(self, img, active_mode, light_on):
         """
-        Draws right vertical translucent toolbar panel with Light 💡, Notepad 📑, and Power ⏻ icons.
+        Draws right vertical translucent toolbar panel ONLY when sidebar_visible is True.
         """
+        if not self.sidebar_visible:
+            return
+
         h, w, _ = img.shape
         panel_w = 80
         panel_h = 340
@@ -72,7 +76,7 @@ class UIManager:
                 cv2.line(img, (cx, cy - 12), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
 
     def draw_notepad_card(self, img, text_content=""):
-        """Draws left-side translucent Notepad card with ruling lines matching video."""
+        """Draws left-side translucent Notepad card with ruling lines."""
         h, w, _ = img.shape
         nx1, ny1 = 45, 80
         nw, nh = 470, 420
@@ -113,7 +117,10 @@ class UIManager:
         ]
 
     def check_interaction(self, img, landmarks_list, w, h, active_mode, light_on):
-        """Checks finger hover dwell selection on right toolbar icons."""
+        """
+        1. Checks finger position for gesture trigger: index_x > w * 0.85 sets sidebar_visible = True.
+        2. Handles hover dwell selection when sidebar is visible.
+        """
         if not landmarks_list:
             self.hover_start_time = None
             self.hovered_button = None
@@ -121,6 +128,13 @@ class UIManager:
 
         index_pt = landmarks_list[0][8][:2]
         ix, iy = index_pt
+
+        # 1. Gesture Trigger: Pointing index finger to right edge (x > w * 0.85) reveals sidebar
+        if ix > int(w * 0.85):
+            self.sidebar_visible = True
+
+        if not self.sidebar_visible:
+            return active_mode, light_on, False
 
         buttons = self.get_button_rects(w, h)
         hovered_now = None
@@ -145,7 +159,7 @@ class UIManager:
                     elif hovered_now == "LIGHT":
                         light_on = not light_on
                     elif hovered_now == "POWER":
-                        quit_signal = True
+                        self.sidebar_visible = False
                     self.hover_start_time = time.time() + 0.5
             else:
                 self.hovered_button = hovered_now

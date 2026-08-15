@@ -9,6 +9,7 @@ if os.path.exists(venv_site) and venv_site not in sys.path:
 import cv2
 import time
 import argparse
+import numpy as np
 from src.hand_tracker import HandTracker
 from src.air_scribble import AirScribble
 from src.wireframe_engine import WireframeEngine
@@ -50,7 +51,6 @@ def main():
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret or frame is None:
-            # Fallback frame if camera feed is not providing imagery
             frame = np.zeros((720, 1280, 3), dtype=np.uint8)
             cv2.putText(frame, "Camera Feed Unavailable - Connect Webcam", (300, 360),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -66,35 +66,26 @@ def main():
         # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
-        # Step 2: Determine Toolbar Visibility (Shown in WRITE mode or when finger is at right edge)
-        show_toolbar = (active_mode == "WRITE")
-        if landmarks_list:
-            index_x = landmarks_list[0][8][0]
-            if index_x > w - 140:
-                show_toolbar = True
+        # Step 2: Handle Gesture Triggering & Interaction
+        active_mode, light_on, quit_signal = ui.check_interaction(
+            frame, landmarks_list, w, h, active_mode, light_on
+        )
+        if quit_signal:
+            break
 
-        # Step 3: Handle Interaction when toolbar is visible or index finger near right edge
-        if show_toolbar or (landmarks_list and landmarks_list[0][8][0] > w - 140):
-            active_mode, light_on, quit_signal = ui.check_interaction(
-                frame, landmarks_list, w, h, active_mode, light_on
-            )
-            if quit_signal:
-                break
-
-        # Step 4: Execute Selected Mode
+        # Step 3: Execute Selected Mode
         if active_mode == "WRITE":
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
             frame = scribble.merge_with_frame(frame)
         else:
-            # WIREFRAME Mode: Exactly matches Image 2 (Clean mesh, coordinates, cyan dots, FPS badge)
+            # WIREFRAME Mode: Clean 3D Mesh & Coordinates matching video 0:00 to 0:09
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 5: Render Toolbar ONLY when active or near right edge
-        if show_toolbar:
-            ui.draw_right_toolbar(frame, active_mode, light_on)
+        # Step 4: Render Dynamic Sidebar (ONLY when sidebar_visible == True)
+        ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Step 6: Render Top-Left ( 28 FPS ) Capsule Badge
+        # Step 5: Render Top-Left ( 28 FPS ) Capsule Badge
         ui.draw_top_fps_badge(frame, fps)
 
         cv2.imshow(WINDOW_TITLE, frame)
