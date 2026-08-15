@@ -1,3 +1,11 @@
+import sys
+import os
+
+# Automatically append local venv site-packages if running with system python
+venv_site = os.path.join(os.path.dirname(__file__), "venv", "lib", f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")
+if os.path.exists(venv_site) and venv_site not in sys.path:
+    sys.path.insert(0, venv_site)
+
 import cv2
 import time
 import argparse
@@ -66,7 +74,7 @@ def main():
         else:
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 4: Render Right Vertical Toolbar Panel (Light 💡, Notepad 📑, Power ⏻)
+        # Step 4: Render Right Vertical Toolbar Panel
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
         # Step 5: Render Top-Left ( 31 FPS ) Capsule Badge
