@@ -10,21 +10,6 @@ class UIManager:
         self.dwell_time = 0.45
         self.sidebar_visible = False
 
-    def is_5_fingers_open(self, norm_landmarks):
-        """
-        Detects 5-finger open hand gesture.
-        Checks if index, middle, ring, pinky finger tips are extended upwards.
-        """
-        if not norm_landmarks or len(norm_landmarks) < 21:
-            return False
-
-        index_open = norm_landmarks[8].y < norm_landmarks[6].y
-        middle_open = norm_landmarks[12].y < norm_landmarks[10].y
-        ring_open = norm_landmarks[16].y < norm_landmarks[14].y
-        pinky_open = norm_landmarks[20].y < norm_landmarks[18].y
-
-        return index_open and middle_open and ring_open and pinky_open
-
     def draw_top_fps_badge(self, img, fps):
         """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
         badge_str = f"{fps} FPS"
@@ -133,12 +118,12 @@ class UIManager:
 
     def check_interaction(self, img, landmarks_list, norm_landmarks, w, h, active_mode, light_on):
         """
-        1. Triggers sidebar when 5-finger open hand is brought to right side (x > w * 0.82).
-        2. Handles hover dwell selection on sidebar buttons.
+        1. Boundary Check: Index finger tip (Landmark 8) x > 0.88 triggers sidebar_visible = True.
+        2. Handles dwell selection on sidebar buttons.
         """
-        if norm_landmarks and self.is_5_fingers_open(norm_landmarks):
-            index_x = norm_landmarks[8].x
-            if index_x > 0.82:
+        if norm_landmarks and len(norm_landmarks) >= 21:
+            index_tip_x = norm_landmarks[8].x
+            if index_tip_x > 0.88:
                 self.sidebar_visible = True
 
         if not self.sidebar_visible and active_mode != "WRITE":
