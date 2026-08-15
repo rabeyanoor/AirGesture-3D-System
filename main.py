@@ -40,7 +40,7 @@ def main():
     wireframe = WireframeEngine()
     ocr = OCREngine()
     ui = UIManager()
-    knuckle_engine = KnuckleGestureEngine(touch_threshold=0.055, cooldown=0.6)
+    knuckle_engine = KnuckleGestureEngine(cooldown=0.45)
 
     active_mode = "WIREFRAME"
     light_on = False
@@ -80,17 +80,17 @@ def main():
                 cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 120, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
 
-            # Step 3: Finger Joint Air Typing
+            # Step 3: Direct Finger Joint Touch Air Typing
             char, touch_pt = knuckle_engine.detect_finger_joint_typing(norm_landmarks)
             if char is not None:
                 scribble.text_buffer += char
-                print(f"Direct Finger Joint Typed: '{char}' -> Current Notepad Buffer: '{scribble.text_buffer}'")
+                print(f"Typed Character: '{char}' -> Buffer: '{scribble.text_buffer}'")
 
             if touch_pt is not None:
                 px, py = int(touch_pt[0] * w), int(touch_pt[1] * h)
-                cv2.circle(frame, (px, py), 12, (0, 255, 255), -1, cv2.LINE_AA)
+                cv2.circle(frame, (px, py), 14, (0, 255, 255), -1, cv2.LINE_AA)
                 cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 255), 2, cv2.LINE_AA)
 
         # Step 4: Handle 5-Finger Open Hand Sidebar Trigger & Interaction
         active_mode, light_on, quit_signal = ui.check_interaction(
