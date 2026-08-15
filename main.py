@@ -29,7 +29,6 @@ def main():
 
     active_mode = "WIREFRAME"
     light_on = False
-    recognized_text = []
 
     fps_eval_time = time.time()
     fps = 30
@@ -52,26 +51,25 @@ def main():
         # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
-        # Step 2: Handle Right Toolbar Interaction
-        active_mode, light_on, trigger_ocr = ui.check_interaction(
-            frame, landmarks_list, w, h, active_mode, light_on, scribble
+        # Step 2: Handle Right Toolbar Interaction (Hover selection)
+        active_mode, light_on, quit_signal = ui.check_interaction(
+            frame, landmarks_list, w, h, active_mode, light_on
         )
+        if quit_signal:
+            break
 
-        if trigger_ocr:
-            recognized_text = ocr.recognize(scribble.canvas)
-
-        # Step 3: Mode Execution
+        # Step 3: Execute Selected Mode
         if active_mode == "WRITE":
-            ui.draw_notepad_card(frame, recognized_text)
+            ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
             frame = scribble.merge_with_frame(frame)
         else:
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 4: Render Right Vertical Toolbar Panel
+        # Step 4: Render Right Vertical Toolbar Panel (Light 💡, Notepad 📑, Power ⏻)
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Step 5: Render Top-Left ( 33 FPS ) Badge
+        # Step 5: Render Top-Left ( 31 FPS ) Capsule Badge
         ui.draw_top_fps_badge(frame, fps)
 
         cv2.imshow(WINDOW_TITLE, frame)
@@ -80,11 +78,12 @@ def main():
         if key == ord('q') or key == 27:
             break
         elif key == ord('s'):
-            recognized_text = ocr.recognize(scribble.canvas)
-            print("OCR Output:", recognized_text)
+            ocr_text = ocr.recognize(scribble.canvas)
+            if ocr_text:
+                scribble.text_buffer = " ".join(ocr_text)
+            print("OCR Text Output:", scribble.text_buffer)
         elif key == ord('c'):
             scribble.clear()
-            recognized_text = []
 
     cap.release()
     cv2.destroyAllWindows()
