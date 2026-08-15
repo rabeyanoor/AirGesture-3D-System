@@ -1,33 +1,49 @@
 import time
 import numpy as np
 
+def extract_xy(lm):
+    """Safely extracts (x, y) coordinates from landmark objects or (x, y, z) tuples."""
+    if hasattr(lm, 'x') and hasattr(lm, 'y'):
+        return np.array([lm.x, lm.y], dtype=np.float32)
+    elif isinstance(lm, (tuple, list)) and len(lm) >= 2:
+        return np.array([lm[0], lm[1]], dtype=np.float32)
+    return np.array([0.0, 0.0], dtype=np.float32)
+
 class KnuckleGestureEngine:
     def __init__(self, cooldown=0.35):
         self.cooldown = cooldown
         self.last_input_time = 0
         self.last_fist_time = 0
 
-    def is_fist_gesture(self, landmarks_normalized):
+    def is_fist_gesture(self, landmarks):
         """
-        Detects Closed Fist Gesture (✊ mut) using normalized MediaPipe landmarks.
+        Detects Closed Fist Gesture (✊ mut).
         Checks if index, middle, ring, pinky tips are folded down towards palm.
         """
-        if not landmarks_normalized or len(landmarks_normalized) < 21:
+        if not landmarks or len(landmarks) < 21:
             return False
 
-        index_folded = landmarks_normalized[8].y > landmarks_normalized[6].y
-        middle_folded = landmarks_normalized[12].y > landmarks_normalized[10].y
-        ring_folded = landmarks_normalized[16].y > landmarks_normalized[14].y
-        pinky_folded = landmarks_normalized[20].y > landmarks_normalized[18].y
+        idx_tip_y = extract_xy(landmarks[8])[1]
+        idx_pip_y = extract_xy(landmarks[6])[1]
 
-        return index_folded and middle_folded and ring_folded and pinky_folded
+        mid_tip_y = extract_xy(landmarks[12])[1]
+        mid_pip_y = extract_xy(landmarks[10])[1]
 
-    def check_word_erase(self, landmarks_normalized, text_buffer):
+        rng_tip_y = extract_xy(landmarks[16])[1]
+        rng_pip_y = extract_xy(landmarks[14])[1]
+
+        pnk_tip_y = extract_xy(landmarks[20])[1]
+        pnk_pip_y = extract_xy(landmarks[18])[1]
+
+        return (idx_tip_y > idx_pip_y) and (mid_tip_y > mid_pip_y) and \
+               (rng_tip_y > rng_pip_y) and (pnk_tip_y > pnk_pip_y)
+
+    def check_word_erase(self, landmarks, text_buffer):
         """
         If Closed Fist (✊ mut) is detected, erases one word from text_buffer.
         """
         now = time.time()
-        if self.is_fist_gesture(landmarks_normalized):
+        if self.is_fist_gesture(landmarks):
             if now - self.last_fist_time > self.cooldown:
                 self.last_fist_time = now
                 words = text_buffer.strip().split()
@@ -38,10 +54,9 @@ class KnuckleGestureEngine:
                     return "", True
         return text_buffer, False
 
-    def detect_finger_joint_typing(self, landmarks_normalized):
+    def detect_finger_joint_typing(self, landmarks):
         """
-        Generous scale-invariant Euclidean distance calculation (0.58 * hand_scale).
-        Guarantees instant character typing when thumb touches any finger joint/knuckle!
+        Ultra-robust finger joint typing engine. Supports both pixel tuples and normalized landmark objects!
         - 8: Index Tip -> "H"
         - 7: Index PIP -> "e"
         - 6: Index MCP -> "l"
@@ -50,30 +65,33 @@ class KnuckleGestureEngine:
         - 16: Ring Tip -> ","
         - 20: Pinky Tip -> " Spatial AR"
         """
-        if not landmarks_normalized or len(landmarks_normalized) < 21:
+        if not landmarks or len(landmarks) < 21:
             return None, None
 
         now = time.time()
         if now - self.last_input_time < self.cooldown:
             return None, None
 
-        wrist = np.array([landmarks_normalized[0].x, landmarks_normalized[0].y])
-        middle_mcp = np.array([landmarks_normalized[9].x, landmarks_normalized[9].y])
+        wrist = extract_xy(landmarks[0])
+        middle_mcp = extract_xy(landmarks[9])
         hand_scale = np.linalg.norm(wrist - middle_mcp)
-        if hand_scale < 1e-4:
-            hand_scale = 0.20
 
-        # Generous scale-invariant touch threshold (0.58 * hand_scale)
-        touch_threshold = max(0.09, 0.58 * hand_scale)
+        # Determine threshold dynamically based on coordinate scale (normalized vs pixels)
+        if hand_scale > 10.0:
+            # Pixel space coordinates (e.g. 1280x720)
+            touch_threshold = max(40.0, 0.45 * hand_scale)
+        else:
+            # Normalized float coordinates [0.0, 1.0]
+            touch_threshold = max(0.08, 0.45 * hand_scale)
 
-        thumb_tip = np.array([landmarks_normalized[4].x, landmarks_normalized[4].y])
-        index_tip = np.array([landmarks_normalized[8].x, landmarks_normalized[8].y])
-        index_pip = np.array([landmarks_normalized[7].x, landmarks_normalized[7].y])
-        index_mcp = np.array([landmarks_normalized[6].x, landmarks_normalized[6].y])
-        middle_tip = np.array([landmarks_normalized[12].x, landmarks_normalized[12].y])
-        middle_pip = np.array([landmarks_normalized[10].x, landmarks_normalized[10].y])
-        ring_tip = np.array([landmarks_normalized[16].x, landmarks_normalized[16].y])
-        pinky_tip = np.array([landmarks_normalized[20].x, landmarks_normalized[20].y])
+        thumb_tip = extract_xy(landmarks[4])
+        index_tip = extract_xy(landmarks[8])
+        index_pip = extract_xy(landmarks[7])
+        index_mcp = extract_xy(landmarks[6])
+        middle_tip = extract_xy(landmarks[12])
+        middle_pip = extract_xy(landmarks[10])
+        ring_tip = extract_xy(landmarks[16])
+        pinky_tip = extract_xy(landmarks[20])
 
         d_index_tip = np.linalg.norm(thumb_tip - index_tip)
         d_index_pip = np.linalg.norm(thumb_tip - index_pip)

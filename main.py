@@ -15,7 +15,7 @@ from src.air_scribble import AirScribble
 from src.wireframe_engine import WireframeEngine
 from src.ocr_engine import OCREngine
 from src.ui_manager import UIManager
-from src.knuckle_gesture import KnuckleGestureEngine
+from src.knuckle_gesture import KnuckleGestureEngine, extract_xy
 from src.config import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
 
 def main():
@@ -40,7 +40,7 @@ def main():
     wireframe = WireframeEngine()
     ocr = OCREngine()
     ui = UIManager()
-    knuckle_engine = KnuckleGestureEngine(cooldown=0.45)
+    knuckle_engine = KnuckleGestureEngine(cooldown=0.35)
 
     # Default to WRITE mode so Notepad paper lines are active immediately!
     active_mode = "WRITE"
@@ -71,19 +71,26 @@ def main():
         landmarks_list, handedness_list, raw_results = tracker.process(frame)
 
         norm_landmarks = None
+        target_landmarks = None
+
+        if landmarks_list:
+            target_landmarks = landmarks_list[0]
         if raw_results and raw_results.multi_hand_landmarks:
             norm_landmarks = raw_results.multi_hand_landmarks[0].landmark
+            if not target_landmarks:
+                target_landmarks = norm_landmarks
 
+        if target_landmarks:
             # Step 2: Fist Gesture Word Erase (✊ mut)
             scribble.text_buffer, erased = knuckle_engine.check_word_erase(
-                norm_landmarks, scribble.text_buffer
+                target_landmarks, scribble.text_buffer
             )
             if erased:
                 cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 120, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
 
             # Step 3: Direct Finger Joint Touch Air Typing
-            char, touch_pt = knuckle_engine.detect_finger_joint_typing(norm_landmarks)
+            char, touch_pt = knuckle_engine.detect_finger_joint_typing(target_landmarks)
             if char is not None:
                 active_mode = "WRITE"
                 ui.sidebar_visible = True
@@ -91,7 +98,9 @@ def main():
                 print(f"Typed Character: '{char}' -> Current Notepad Buffer: '{scribble.text_buffer}'")
 
             if touch_pt is not None:
-                px, py = int(touch_pt[0] * w), int(touch_pt[1] * h)
+                px, py = int(touch_pt[0]), int(touch_pt[1])
+                if px <= 1 and py <= 1:
+                    px, py = int(px * w), int(py * h)
                 cv2.circle(frame, (px, py), 14, (0, 255, 255), -1, cv2.LINE_AA)
                 cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 255), 2, cv2.LINE_AA)
