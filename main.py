@@ -13,7 +13,6 @@ import numpy as np
 
 from src.hand_tracker    import HandTracker
 from src.wireframe_engine import WireframeEngine
-from src.air_scribble    import AirScribble
 from src.ui_manager      import UIManager
 from src.air_typer       import AirTyper
 from src.ai_solver       import AISolver
@@ -47,7 +46,6 @@ def main():
 
     tracker  = HandTracker(max_hands=2)
     wireframe = WireframeEngine()
-    scribble  = AirScribble()
     ui        = UIManager()
     typer     = AirTyper()
     ai        = AISolver()

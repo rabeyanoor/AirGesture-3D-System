@@ -1,5 +1,10 @@
 import os
-import google.generativeai as genai
+
+try:
+    import google.generativeai as genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
 
 
 class AISolver:
@@ -14,7 +19,7 @@ class AISolver:
         self.last_question = ""
         self.last_answer = ""
 
-        if api_key:
+        if HAS_GENAI and api_key:
             try:
                 genai.configure(api_key=api_key)
                 self.model = genai.GenerativeModel("gemini-1.5-flash")
@@ -23,7 +28,7 @@ class AISolver:
             except Exception as e:
                 print(f"[AI] Gemini init failed: {e}")
         else:
-            print("[AI] No GEMINI_API_KEY set. AI solver disabled.")
+            print("[AI] Gemini AI solver inactive (missing package or GEMINI_API_KEY).")
 
     def solve(self, question: str) -> str:
         """Send question to Gemini and return concise answer."""
