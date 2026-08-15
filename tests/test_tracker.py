@@ -19,7 +19,7 @@ class TestSpatialVisionAR(unittest.TestCase):
 
     def test_ui_manager_buttons(self):
         ui = UIManager()
-        buttons = ui.get_buttons(1280)
+        buttons = ui.get_button_rects(1280, 720)
         self.assertGreater(len(buttons), 0)
 
 if __name__ == '__main__':

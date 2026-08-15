@@ -6,14 +6,13 @@ from src.air_scribble import AirScribble
 from src.wireframe_engine import WireframeEngine
 from src.ocr_engine import OCREngine
 from src.ui_manager import UIManager
-from src.config import FRAME_WIDTH, FRAME_HEIGHT
+from src.config import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
 
 def main():
-    parser = argparse.ArgumentParser(description="Spatial Vision AR System")
-    parser.add_argument("--source", default=0, help="Camera index or stream URL (e.g., 0, 1, or http://ip:port/video)")
+    parser = argparse.ArgumentParser(description="Spatial Vision AR - URANTUNE_WL_OT")
+    parser.add_argument("--source", default=0, help="Camera index or IP stream URL")
     args = parser.parse_args()
 
-    # Parse camera input source
     source = args.source
     if str(source).isdigit():
         source = int(source)
@@ -22,93 +21,67 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-    # Initialize Core Engines
     tracker = HandTracker()
     scribble = AirScribble()
     wireframe = WireframeEngine()
     ocr = OCREngine()
     ui = UIManager()
 
-    active_mode = "WRITE"
+    active_mode = "WIREFRAME" # Default mode matches wireframe demo
+    light_on = False
     recognized_text = []
-    text_display_timer = 0
 
     fps_eval_time = time.time()
-    fps = 0
+    fps = 30
 
-    print("=========================================")
-    print("  Spatial Vision AR - Interactive System ")
-    print("=========================================")
-    print("Controls:")
-    print("  - Pinch (Thumb + Index Tip): Draw in Air / Interact")
-    print("  - Hover over UI buttons on the right to switch modes")
-    print("  - Press 's' on keyboard: Trigger OCR text recognition")
-    print("  - Press 'c' on keyboard: Clear canvas")
-    print("  - Press 'q' or ESC: Quit application")
-    print("=========================================")
+    cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            print("Notice: Camera stream unavailable or ended.")
             break
 
-        # Flip horizontally for natural selfie view
         frame = cv2.flip(frame, 1)
         h, w, _ = frame.shape
 
-        # Measure FPS
-        current_time = time.time()
-        fps = int(1.0 / (current_time - fps_eval_time + 1e-5))
-        fps_eval_time = current_time
+        # FPS Calculation
+        curr_time = time.time()
+        fps = int(1.0 / (curr_time - fps_eval_time + 1e-5))
+        fps_eval_time = curr_time
 
-        # Step 1: Process Hand Landmarks
+        # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
-        # Step 2: Handle UI Interactions (Button Hover & Dwell)
-        active_mode, trigger_ocr = ui.check_hover_interaction(
-            frame, landmarks_list, w, active_mode, scribble
+        # Step 2: Handle Right Toolbar Interaction
+        active_mode, light_on, quit_signal = ui.check_interaction(
+            frame, landmarks_list, w, h, active_mode, light_on
         )
+        if quit_signal:
+            break
 
-        # Step 3: Execute Active Mode Logic
+        # Step 3: Draw Left Side NOTEPAD card if WRITE mode is active
         if active_mode == "WRITE":
+            ui.draw_notepad_card(frame)
             scribble.update(frame, landmarks_list)
-        elif active_mode == "WIREFRAME":
+            frame = scribble.merge_with_frame(frame)
+        else:
+            # Render 3D Spatial Wireframe & Mesh with landmark coordinate text
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Merge drawn air canvas onto video feed
-        frame = scribble.merge_with_frame(frame)
+        # Step 4: Render Right Vertical Toolbar Panel
+        ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Draw UI Overlay Panels
-        ui.draw_ui(frame, active_mode, scribble.color, scribble.is_erasing)
+        # Step 5: Render Top-Left ( 33 FPS ) Badge
+        ui.draw_top_fps_badge(frame, fps)
 
-        # Handle OCR Recognition Trigger
-        if trigger_ocr:
-            recognized_text = ocr.recognize(scribble.canvas)
-            text_display_timer = time.time()
-            print("OCR Recognition Output:", recognized_text)
+        cv2.imshow(WINDOW_TITLE, frame)
 
-        # Display Recognized Text HUD Banner
-        if recognized_text and (time.time() - text_display_timer < 5.0):
-            banner_str = "Recognized: " + " ".join(recognized_text)
-            cv2.rectangle(frame, (20, h - 60), (w - 20, h - 15), (0, 0, 0), -1)
-            cv2.rectangle(frame, (20, h - 60), (w - 20, h - 15), (0, 255, 0), 2)
-            cv2.putText(frame, banner_str, (35, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
-
-        # Display FPS in bottom corner
-        cv2.putText(frame, f"FPS: {fps}", (20, h - 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
-
-        # Display Viewport Window
-        cv2.imshow("Spatial Vision AR Interface", frame)
-
-        # Keyboard Shortcut Triggers
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
             break
         elif key == ord('s'):
             recognized_text = ocr.recognize(scribble.canvas)
-            text_display_timer = time.time()
-            print("OCR Text Recognition Output:", recognized_text)
+            print("Recognized Text Output:", recognized_text)
         elif key == ord('c'):
             scribble.clear()
 
