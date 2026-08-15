@@ -44,7 +44,6 @@ def main():
 
     active_mode = "WIREFRAME"
     light_on = False
-    last_ocr_time = time.time()
 
     fps_eval_time = time.time()
     fps = 30
@@ -69,15 +68,26 @@ def main():
         # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
-        # Step 2: Knuckle / Joint Micro-Gesture Detection
+        # Step 2: Fist Gesture Word Erase (✊ mut) & Knuckle Touch Controls
         if landmarks_list:
-            knuckle_cmd = knuckle_engine.detect_knuckle_touch(landmarks_list[0])
+            hand_landmarks = landmarks_list[0]
+            
+            # Check Fist Gesture (✊ mut) to erase one word per fist clench
+            scribble.text_buffer, erased = knuckle_engine.check_word_erase(
+                hand_landmarks, scribble.text_buffer
+            )
+            if erased:
+                # Show visual feedback for word erasure
+                cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 100, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+
+            knuckle_cmd = knuckle_engine.detect_knuckle_touch(hand_landmarks)
             if knuckle_cmd == " ":
                 scribble.text_buffer += " "
             elif knuckle_cmd == "BACKSPACE" and len(scribble.text_buffer) > 0:
                 scribble.text_buffer = scribble.text_buffer[:-1]
 
-        # Step 3: Handle Gesture Triggering & Interaction
+        # Step 3: Handle Gesture Triggering & Toolbar Interaction
         active_mode, light_on, quit_signal = ui.check_interaction(
             frame, landmarks_list, w, h, active_mode, light_on
         )
@@ -88,17 +98,6 @@ def main():
         if active_mode == "WRITE":
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
-            frame = scribble.merge_with_frame(frame)
-
-            # Auto OCR trigger when stroke finishes and user pauses writing (0.8s pause)
-            if scribble.stroke_points and not scribble.is_pinching:
-                if curr_time - scribble.last_draw_time > 0.8 and curr_time - last_ocr_time > 1.2:
-                    text_results = ocr.recognize(scribble.canvas)
-                    if text_results:
-                        recognized_str = " ".join(text_results)
-                        if recognized_str not in scribble.text_buffer:
-                            scribble.text_buffer += " " + recognized_str if scribble.text_buffer else recognized_str
-                        last_ocr_time = curr_time
         else:
             # WIREFRAME Mode: Clean 3D Mesh & Coordinates matching video 0:00 to 0:09
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
@@ -114,11 +113,6 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
             break
-        elif key == ord('s'):
-            ocr_text = ocr.recognize(scribble.canvas)
-            if ocr_text:
-                scribble.text_buffer = " ".join(ocr_text)
-            print("OCR Text Output:", scribble.text_buffer)
         elif key == ord('c'):
             scribble.clear()
 

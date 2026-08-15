@@ -10,13 +10,10 @@ class AirScribble:
         self.pinch_thresh = pinch_thresh
         self.text_buffer = ""
         self.is_pinching = False
-        self.last_draw_time = 0
-        self.stroke_points = []
 
     def update(self, frame, landmarks_list):
         """
-        Processes air scribble strokes. Pinching index + thumb (Landmark 4 & 8)
-        traces continuous ink lines onto the canvas.
+        No ink drawing lines rendered on screen. Shows sleek pointer dot for clean writing.
         """
         h, w, _ = frame.shape
         if self.canvas is None:
@@ -35,20 +32,10 @@ class AirScribble:
 
         if distance < self.pinch_thresh:
             self.is_pinching = True
-            self.last_draw_time = time.time()
-            if self.prev_x == 0 and self.prev_y == 0:
-                self.prev_x, self.prev_y = index_tip
-
-            # Draw ink line segment
-            cv2.line(self.canvas, (self.prev_x, self.prev_y), index_tip, (30, 30, 30), 4, cv2.LINE_AA)
-            self.prev_x, self.prev_y = index_tip
-            self.stroke_points.append(index_tip)
-
-            # Active red indicator dot on pinch point
+            # Write active indicator dot (red)
             cv2.circle(frame, index_tip, 6, (0, 0, 255), -1, cv2.LINE_AA)
         else:
             self.is_pinching = False
-            self.prev_x, self.prev_y = 0, 0
             # Hover cursor dot (green) on index tip when hand is open
             cv2.circle(frame, index_tip, 5, (0, 255, 0), -1, cv2.LINE_AA)
 
@@ -56,16 +43,7 @@ class AirScribble:
         if self.canvas is not None:
             self.canvas.fill(0)
         self.text_buffer = ""
-        self.stroke_points = []
 
     def merge_with_frame(self, frame):
-        if self.canvas is None:
-            return frame
-
-        gray_canvas = cv2.cvtColor(self.canvas, cv2.COLOR_BGR2GRAY)
-        _, inv_canvas = cv2.threshold(gray_canvas, 10, 255, cv2.THRESH_BINARY_INV)
-        inv_canvas = cv2.cvtColor(inv_canvas, cv2.COLOR_GRAY2BGR)
-
-        frame = cv2.bitwise_and(frame, inv_canvas)
-        frame = cv2.bitwise_or(frame, self.canvas)
+        # Return frame cleanly without drawing lines overlay
         return frame
