@@ -8,7 +8,7 @@ class UIManager:
         self.hover_start_time = None
         self.hovered_button = None
         self.dwell_time = 0.45
-        self.sidebar_visible = False  # Initially Hidden matching video 0:09s
+        self.sidebar_visible = False
 
     def draw_top_fps_badge(self, img, fps):
         """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
@@ -21,9 +21,9 @@ class UIManager:
 
     def draw_right_toolbar(self, img, active_mode, light_on):
         """
-        Draws right vertical translucent toolbar panel ONLY when sidebar_visible is True.
+        Draws right vertical translucent toolbar panel when visible or active in WRITE mode.
         """
-        if not self.sidebar_visible:
+        if not self.sidebar_visible and active_mode != "WRITE":
             return
 
         h, w, _ = img.shape
@@ -118,9 +118,12 @@ class UIManager:
 
     def check_interaction(self, img, landmarks_list, w, h, active_mode, light_on):
         """
-        1. Checks finger position for gesture trigger: index_x > w * 0.85 sets sidebar_visible = True.
-        2. Handles hover dwell selection when sidebar is visible.
+        Maintains persistent notebook & toolbar state when WRITE mode is active.
         """
+        # In WRITE mode, keep toolbar persistent
+        if active_mode == "WRITE":
+            self.sidebar_visible = True
+
         if not landmarks_list:
             self.hover_start_time = None
             self.hovered_button = None
@@ -129,11 +132,11 @@ class UIManager:
         index_pt = landmarks_list[0][8][:2]
         ix, iy = index_pt
 
-        # 1. Gesture Trigger: Pointing index finger to right edge (x > w * 0.85) reveals sidebar
+        # Gesture Trigger: Pointing index finger to right edge (x > w * 0.85) reveals sidebar
         if ix > int(w * 0.85):
             self.sidebar_visible = True
 
-        if not self.sidebar_visible:
+        if not self.sidebar_visible and active_mode != "WRITE":
             return active_mode, light_on, False
 
         buttons = self.get_button_rects(w, h)
@@ -156,10 +159,12 @@ class UIManager:
                 if elapsed >= self.dwell_time:
                     if hovered_now == "NOTEPAD":
                         active_mode = "WRITE" if active_mode != "WRITE" else "WIREFRAME"
+                        if active_mode == "WIREFRAME":
+                            self.sidebar_visible = False
                     elif hovered_now == "LIGHT":
                         light_on = not light_on
                     elif hovered_now == "POWER":
-                        self.sidebar_visible = False
+                        quit_signal = True
                     self.hover_start_time = time.time() + 0.5
             else:
                 self.hovered_button = hovered_now
