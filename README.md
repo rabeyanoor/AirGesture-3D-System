@@ -1,43 +1,63 @@
-# 🌌 Spatial Vision AR
+# 🌌 Spatial Vision AR (URANTUNE_WL_OT)
 
-> A computer vision-based interactive system enabling real-time 3D hand tracking, spatial wireframe rendering, and air-writing recognition using OpenCV and MediaPipe.
+> A computer vision-based interactive system enabling real-time 3D hand tracking, spatial wireframe rendering, and air-writing recognition using OpenCV, MediaPipe, and EasyOCR.
 
 ---
 
 ## 📌 Overview
 
-**Spatial Vision AR** bridges physical interactions with augmented reality by tracking hands in 3D spatial coordinates using standard camera inputs. Built with **OpenCV** and **MediaPipe**, the system interprets hand gestures to draw air-written text and graphics, render interactive 3D spatial wireframes, and project virtual AR overlays seamlessly in real time.
+**Spatial Vision AR** bridges physical interactions with augmented reality by tracking hands in 3D spatial coordinates using standard camera inputs. Built with **OpenCV**, **MediaPipe**, and **EasyOCR**, the system interprets hand gestures to draw air-written text on a translucent Notepad overlay, render interactive 3D spatial wireframe meshes, and project virtual AR controls seamlessly in real time.
 
 ---
 
 ## ✨ Key Features
 
-- 🖐️ **Real-Time 3D Hand Tracking** - Tracks 21 hand keypoints with depth estimation ($Z$-coordinate spatial positioning).
-- ✍️ **Air-Writing & Gesture Canvas** - Draw, sketch, and erase in 3D air space with high precision and stroke smoothing.
-- 📐 **Spatial Wireframe Rendering** - Renders dynamic 3D geometric wireframes, coordinate grids, and bounding shapes around objects or hands.
-- 🎨 **Interactive AR Canvas** - Dynamic color palettes, stroke width adjustments, and gesture-triggered canvas resets.
-- ⚡ **High FPS & Low Latency** - Optimized video processing pipeline using OpenCV and MediaPipe Hands solution.
+- 🖐️ **2D & 3D Landmark Detection** - Tracks 21 hand keypoints ($X, Y, Z$) using Google MediaPipe Hands pre-trained deep learning pipeline.
+- 📐 **Pose & Geometry Wireframe Engine** - Renders 3D spatial meshes, polygon faces, and prints real-time $(X, Y)$ coordinate labels on landmarks.
+- 📑 **Virtual UI & Lined Notepad Card** - Interactive right-side glassmorphic toolbar with Light, Notepad, and Power buttons, plus a left-side notebook paper card.
+- ✍️ **Air-Writing & Optical Character Recognition (OCR)** - Draw text in the air using finger gestures and recognize handwritten words via EasyOCR.
+- ⚡ **High FPS & Low Latency** - Optimized OpenCV frame processing with top-left `( 33 FPS )` status pill.
 
 ---
 
-## 🛠️ Tech Stack & Dependencies
+## 🛠️ System Architecture & Computer Vision Pipeline
 
-- **Language** - Python 3.9+
-- **Computer Vision** - `opencv-python`
-- **Hand Tracking ML Pipeline** - `mediapipe`
-- **Numerical Computations** - `numpy`
+1. **Palm & Hand Landmark Detection**
+   - MediaPipe Palm Detector locates hand regions in the frame.
+   - Hand Landmark Model places 21 keypoints per hand with 3D depth tracking.
+2. **Mathematical Geometry & 3D Mesh Rendering**
+   - Calculates spatial vectors between keypoints across hands.
+   - Renders semi-transparent wireframe meshes using `cv2.fillPoly` and `cv2.polylines`.
+   - Displays dynamic $(X, Y)$ coordinate tags adjacent to fingertips.
+3. **Air Writing & OCR Engine**
+   - Finger movement trajectories are recorded onto the Notepad overlay.
+   - EasyOCR converts drawn strokes into digital text (e.g. "Hello, My name is P Khang").
+
+---
+
+## 📁 Repository Structure
+
+```text
+spatial-vision-ar/
+├── main.py                # Main application entry point (URANTUNE_WL_OT)
+├── src/
+│   ├── config.py          # Color codes, resolution, and window configuration
+│   ├── hand_tracker.py    # MediaPipe 3D landmark extraction & EMA smoothing
+│   ├── wireframe_engine.py# 3D spatial mesh & coordinate rendering
+│   ├── air_scribble.py    # Air-writing canvas & notepad ink logic
+│   ├── ocr_engine.py      # EasyOCR text recognition engine
+│   └── ui_manager.py      # Right toolbar, Light/Notepad/Power buttons & FPS badge
+├── tests/
+│   └── test_tracker.py    # Unit tests suite
+├── requirements.txt       # Dependencies list
+├── .gitignore             # Git ignore rules
+├── LICENSE                # MIT License
+└── README.md              # Documentation
+```
 
 ---
 
 ## 🚀 Getting Started
-
-### Prerequisites
-
-Ensure you have Python installed on your system.
-
-```bash
-python --version
-```
 
 ### Installation
 
@@ -49,46 +69,25 @@ python --version
 
 2. **Create a Virtual Environment**
    ```bash
-   python -m venv venv
+   python3 -m venv venv
    source venv/bin/activate
    ```
 
-3. **Install Required Packages**
+3. **Install Dependencies**
    ```bash
-   pip install opencv-python mediapipe numpy
+   pip install -r requirements.txt
    ```
 
----
-
-## 🎮 How It Works
-
-1. **Video Stream Capture** - OpenCV captures live frame buffers from your webcam.
-2. **Landmark Extraction** - MediaPipe Hands extracts 21 3D landmarks ($X, Y, Z$) per hand.
-3. **Gesture & Coordinate Mapping**
-   - **Index Fingertip (Landmark 8)** - Serves as the primary drawing pointer.
-   - **Pinch / Finger Distance** - Toggles selection, drawing modes, or wireframe scaling.
-4. **Air-Writing & Wireframe Engine** - Tracks coordinate histories to render continuous trajectories and project 3D spatial wireframe meshes over the live feed.
-
----
-
-## 📁 Repository Structure
-
-```text
-spatial-vision-ar/
-├── README.md              # Project documentation
-├── main.py                # Core application entry point
-├── src/
-│   ├── hand_tracker.py    # MediaPipe 3D landmark extraction pipeline
-│   ├── air_canvas.py      # Air-writing recognition & rendering logic
-│   └── wireframe_3d.py    # 3D spatial mesh & geometry projection
-└── requirements.txt       # Project dependencies
-```
+4. **Run Application**
+   ```bash
+   python main.py
+   ```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/rabeyanoor/spatial-vision-ar/issues).
+Contributions, issues, and feature requests are welcome! Check the [issues page](https://github.com/rabeyanoor/spatial-vision-ar/issues).
 
 ---
 
