@@ -29,6 +29,10 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
+    # Warmup camera frames
+    for _ in range(5):
+        cap.read()
+
     tracker = HandTracker()
     scribble = AirScribble()
     wireframe = WireframeEngine()
@@ -45,8 +49,11 @@ def main():
 
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret:
-            break
+        if not ret or frame is None:
+            # Fallback frame if camera feed is not providing imagery
+            frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+            cv2.putText(frame, "Camera Feed Unavailable - Connect Webcam", (300, 360),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
         frame = cv2.flip(frame, 1)
         h, w, _ = frame.shape
@@ -59,25 +66,35 @@ def main():
         # Step 1: Process Hand Tracking
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
-        # Step 2: Handle Right Toolbar Interaction (Hover selection)
-        active_mode, light_on, quit_signal = ui.check_interaction(
-            frame, landmarks_list, w, h, active_mode, light_on
-        )
-        if quit_signal:
-            break
+        # Step 2: Determine Toolbar Visibility (Shown in WRITE mode or when finger is at right edge)
+        show_toolbar = (active_mode == "WRITE")
+        if landmarks_list:
+            index_x = landmarks_list[0][8][0]
+            if index_x > w - 140:
+                show_toolbar = True
 
-        # Step 3: Execute Selected Mode
+        # Step 3: Handle Interaction when toolbar is visible or index finger near right edge
+        if show_toolbar or (landmarks_list and landmarks_list[0][8][0] > w - 140):
+            active_mode, light_on, quit_signal = ui.check_interaction(
+                frame, landmarks_list, w, h, active_mode, light_on
+            )
+            if quit_signal:
+                break
+
+        # Step 4: Execute Selected Mode
         if active_mode == "WRITE":
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
             frame = scribble.merge_with_frame(frame)
         else:
+            # WIREFRAME Mode: Exactly matches Image 2 (Clean mesh, coordinates, cyan dots, FPS badge)
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 4: Render Right Vertical Toolbar Panel
-        ui.draw_right_toolbar(frame, active_mode, light_on)
+        # Step 5: Render Toolbar ONLY when active or near right edge
+        if show_toolbar:
+            ui.draw_right_toolbar(frame, active_mode, light_on)
 
-        # Step 5: Render Top-Left ( 31 FPS ) Capsule Badge
+        # Step 6: Render Top-Left ( 28 FPS ) Capsule Badge
         ui.draw_top_fps_badge(frame, fps)
 
         cv2.imshow(WINDOW_TITLE, frame)

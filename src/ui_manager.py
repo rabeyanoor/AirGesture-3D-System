@@ -10,7 +10,7 @@ class UIManager:
         self.dwell_time = 0.45
 
     def draw_top_fps_badge(self, img, fps):
-        """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
+        """Draws top-left rounded FPS capsule badge matching image 2 (e.g. 28 FPS)."""
         badge_str = f"{fps} FPS"
         overlay = img.copy()
         cv2.rectangle(overlay, (25, 22), (110, 58), (50, 50, 50), -1)
@@ -20,7 +20,7 @@ class UIManager:
 
     def draw_right_toolbar(self, img, active_mode, light_on):
         """
-        Draws right vertical translucent toolbar panel with Light, Notepad, and Power buttons.
+        Draws right vertical translucent toolbar panel with Light 💡, Notepad 📑, and Power ⏻ icons.
         """
         h, w, _ = img.shape
         panel_w = 80
@@ -72,7 +72,7 @@ class UIManager:
                 cv2.line(img, (cx, cy - 12), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
 
     def draw_notepad_card(self, img, text_content=""):
-        """Draws left-side translucent Notepad card with ruling lines and dynamic typed text overlay."""
+        """Draws left-side translucent Notepad card with ruling lines matching video."""
         h, w, _ = img.shape
         nx1, ny1 = 45, 80
         nw, nh = 470, 420
