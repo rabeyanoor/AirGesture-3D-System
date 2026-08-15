@@ -19,18 +19,23 @@ from src.ai_solver       import AISolver
 from src.config          import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
 
 
-def open_camera(preferred):
-    """Auto-detect working camera."""
+def open_camera(preferred=0):
+    """Auto-detects active webcam across indices [0, 1, 2, 4] and V4L2 backends."""
     if str(preferred).isdigit():
-        for idx in [int(preferred), 0, 1, 2, 4]:
-            cap = cv2.VideoCapture(idx)
-            if cap.isOpened():
-                ret, f = cap.read()
-                if ret and f is not None:
-                    print(f"[CAM OK] Camera Index {idx}")
-                    return cap
-                cap.release()
-    return cv2.VideoCapture(preferred)
+        src_int = int(preferred)
+        for idx in [src_int, 0, 1, 2, 4]:
+            for backend in [cv2.CAP_V4L2, cv2.CAP_ANY]:
+                try:
+                    cap = cv2.VideoCapture(idx, backend)
+                    if cap.isOpened():
+                        ret, f = cap.read()
+                        if ret and f is not None:
+                            print(f"[CAM OK] Camera Index {idx} connected.")
+                            return cap
+                        cap.release()
+                except Exception:
+                    pass
+    return None
 
 
 def main():
@@ -39,18 +44,17 @@ def main():
     args = parser.parse_args()
 
     cap = open_camera(args.source)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-    for _ in range(5):
-        cap.read()
+    if cap is not None:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-    tracker  = HandTracker(max_hands=2)
+    tracker   = HandTracker(max_hands=2)
     wireframe = WireframeEngine()
     ui        = UIManager()
     typer     = AirTyper()
     ai        = AISolver()
 
-    active_mode = "WIREFRAME"  # Start clean like video images 1 & 4
+    active_mode = "WIREFRAME"
     ui.sidebar_visible = False
     light_on    = False
     text_buffer = ""
@@ -58,16 +62,34 @@ def main():
     shift_mode  = False
 
     fps_time = time.time()
+    last_cam_retry = 0
     fps = 30
 
     cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
 
     while True:
-        ret, frame = cap.read()
+        ret = False
+        frame = None
+
+        if cap is not None and cap.isOpened():
+            ret, frame = cap.read()
+
         if not ret or frame is None:
+            if cap is not None:
+                cap.release()
+                cap = None
+
+            # Attempt auto-reconnect every 2 seconds
+            if time.time() - last_cam_retry > 2.0:
+                last_cam_retry = time.time()
+                cap = open_camera(args.source)
+                if cap is not None:
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+
             frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-            cv2.putText(frame, "Camera Feed Unavailable", (340, 360),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (200, 200, 200), 2, cv2.LINE_AA)
+            cv2.putText(frame, "Webcam Feed Unavailable - Please Connect Webcam", (240, 360),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2, cv2.LINE_AA)
         else:
             frame = cv2.flip(frame, 1)
 
@@ -120,14 +142,13 @@ def main():
             ui.draw_left_hand_targets(frame, left_px, shift_mode)
 
         # ── Sidebar interaction ────────────────────────────────────────
-        # Use right hand (or first detected) for sidebar trigger
         sidebar_lm_list = lm_list
         sidebar_norm = right_norm if right_norm else (left_norm if left_norm else None)
         active_mode, light_on, _ = ui.check_interaction(
             frame, sidebar_lm_list, sidebar_norm, w, h, active_mode, light_on
         )
 
-        # ── AI Solve (double-tap '?' = ask AI when text ends with ?) ──
+        # ── AI Solve ───────────────────────────────────────────────────
         if text_buffer.endswith('?') and not ai_answer:
             ai_answer = ai.solve(text_buffer)
 
@@ -149,7 +170,8 @@ def main():
             text_buffer = ""
             ai_answer   = ""
 
-    cap.release()
+    if cap is not None:
+        cap.release()
     cv2.destroyAllWindows()
 
 
