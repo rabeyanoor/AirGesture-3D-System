@@ -18,16 +18,28 @@ from src.ui_manager import UIManager
 from src.knuckle_gesture import KnuckleGestureEngine, extract_xy
 from src.config import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
 
+def open_working_camera(preferred_source):
+    """Tries preferred source, then fallback camera indices (0, 1, 2, 4)."""
+    if str(preferred_source).isdigit():
+        src_int = int(preferred_source)
+        for idx in [src_int, 0, 1, 2, 4]:
+            cap = cv2.VideoCapture(idx)
+            if cap.isOpened():
+                ret, test_frame = cap.read()
+                if ret and test_frame is not None:
+                    print(f"[CAM OK] Successfully connected to Camera Index {idx}")
+                    return cap
+                cap.release()
+    
+    # Fallback for video file or stream URL
+    return cv2.VideoCapture(preferred_source)
+
 def main():
     parser = argparse.ArgumentParser(description="Spatial Vision AR - URANTUNE_WL_OT")
     parser.add_argument("--source", default=0, help="Camera index or IP stream URL")
     args = parser.parse_args()
 
-    source = args.source
-    if str(source).isdigit():
-        source = int(source)
-
-    cap = cv2.VideoCapture(source)
+    cap = open_working_camera(args.source)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
@@ -56,14 +68,16 @@ def main():
 
     cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
 
-    while cap.isOpened():
+    while True:
         ret, frame = cap.read()
         if not ret or frame is None:
             frame = np.zeros((720, 1280, 3), dtype=np.uint8)
             cv2.putText(frame, "Camera Feed Unavailable - Connect Webcam", (300, 360),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+        else:
+            # Flip live webcam feed horizontally for natural mirror feel
+            frame = cv2.flip(frame, 1)
 
-        frame = cv2.flip(frame, 1)
         h, w, _ = frame.shape
 
         # FPS Calculation
