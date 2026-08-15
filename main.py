@@ -1,8 +1,8 @@
 import sys
 import os
 
-# Automatically append local venv site-packages if running with system python
-venv_site = os.path.join(os.path.dirname(__file__), "venv", "lib", f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")
+venv_site = os.path.join(os.path.dirname(__file__), "venv", "lib",
+                         f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")
 if os.path.exists(venv_site) and venv_site not in sys.path:
     sys.path.insert(0, venv_site)
 
@@ -10,56 +10,56 @@ import cv2
 import time
 import argparse
 import numpy as np
-from src.hand_tracker import HandTracker
-from src.air_scribble import AirScribble
-from src.wireframe_engine import WireframeEngine
-from src.ocr_engine import OCREngine
-from src.ui_manager import UIManager
-from src.knuckle_gesture import KnuckleGestureEngine, extract_xy
-from src.config import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
 
-def open_working_camera(preferred_source):
-    """Tries preferred source, then fallback camera indices (0, 1, 2, 4)."""
-    if str(preferred_source).isdigit():
-        src_int = int(preferred_source)
-        for idx in [src_int, 0, 1, 2, 4]:
+from src.hand_tracker    import HandTracker
+from src.wireframe_engine import WireframeEngine
+from src.air_scribble    import AirScribble
+from src.ui_manager      import UIManager
+from src.air_typer       import AirTyper
+from src.ai_solver       import AISolver
+from src.config          import FRAME_WIDTH, FRAME_HEIGHT, WINDOW_TITLE
+
+
+def open_camera(preferred):
+    """Auto-detect working camera."""
+    if str(preferred).isdigit():
+        for idx in [int(preferred), 0, 1, 2, 4]:
             cap = cv2.VideoCapture(idx)
             if cap.isOpened():
-                ret, test_frame = cap.read()
-                if ret and test_frame is not None:
-                    print(f"[CAM OK] Successfully connected to Camera Index {idx}")
+                ret, f = cap.read()
+                if ret and f is not None:
+                    print(f"[CAM OK] Camera Index {idx}")
                     return cap
                 cap.release()
-    
-    # Fallback for video file or stream URL
-    return cv2.VideoCapture(preferred_source)
+    return cv2.VideoCapture(preferred)
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Spatial Vision AR - URANTUNE_WL_OT")
-    parser.add_argument("--source", default=0, help="Camera index or IP stream URL")
+    parser = argparse.ArgumentParser(description="Spatial Vision AR")
+    parser.add_argument("--source", default=0)
     args = parser.parse_args()
 
-    cap = open_working_camera(args.source)
+    cap = open_camera(args.source)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-
-    # Warmup camera frames
     for _ in range(5):
         cap.read()
 
-    tracker = HandTracker()
-    scribble = AirScribble()
+    tracker  = HandTracker(max_hands=2)
     wireframe = WireframeEngine()
-    ocr = OCREngine()
-    ui = UIManager()
-    knuckle_engine = KnuckleGestureEngine(cooldown=0.5)
+    scribble  = AirScribble()
+    ui        = UIManager()
+    typer     = AirTyper()
+    ai        = AISolver()
 
-    # *** START IN WIREFRAME MODE — no sidebar, no notepad (matching video 0:00-0:09) ***
-    active_mode = "WIREFRAME"
+    active_mode = "WIREFRAME"  # Start clean like video images 1 & 4
     ui.sidebar_visible = False
-    light_on = False
+    light_on    = False
+    text_buffer = ""
+    ai_answer   = ""
+    shift_mode  = False
 
-    fps_eval_time = time.time()
+    fps_time = time.time()
     fps = 30
 
     cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
@@ -68,87 +68,92 @@ def main():
         ret, frame = cap.read()
         if not ret or frame is None:
             frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-            cv2.putText(frame, "Camera Feed Unavailable - Connect Webcam", (300, 360),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, "Camera Feed Unavailable", (340, 360),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (200, 200, 200), 2, cv2.LINE_AA)
         else:
-            # Flip live webcam feed horizontally for natural mirror feel
             frame = cv2.flip(frame, 1)
 
         h, w, _ = frame.shape
 
-        # FPS Calculation
-        curr_time = time.time()
-        fps = int(1.0 / (curr_time - fps_eval_time + 1e-5))
-        fps_eval_time = curr_time
+        # FPS
+        now = time.time()
+        fps = int(1.0 / (now - fps_time + 1e-5))
+        fps_time = now
 
-        # Step 1: Process Hand Tracking
-        landmarks_list, handedness_list, raw_results = tracker.process(frame)
+        # ── Hand Tracking ──────────────────────────────────────────────
+        lm_list, hand_labels, raw = tracker.process(frame)
 
-        norm_landmarks = None
-        target_landmarks = None
+        left_px,  left_norm  = tracker.get_hand_by_label(lm_list, hand_labels, raw, "Left")
+        right_px, right_norm = tracker.get_hand_by_label(lm_list, hand_labels, raw, "Right")
 
-        if landmarks_list:
-            target_landmarks = landmarks_list[0]
-        if raw_results and raw_results.multi_hand_landmarks:
-            norm_landmarks = raw_results.multi_hand_landmarks[0].landmark
-            if not target_landmarks:
-                target_landmarks = norm_landmarks
+        # ── Two-Hand Air Typing (only in WRITE mode) ───────────────────
+        if active_mode == "WRITE" and left_norm and right_norm:
 
-        # Step 2: Only process typing/erase when WRITE mode is active
-        if target_landmarks and active_mode == "WRITE":
-            # 2a. Fist Gesture Word Erase (✊ mut)
-            scribble.text_buffer, erased = knuckle_engine.check_word_erase(
-                target_landmarks, scribble.text_buffer
-            )
+            # Shift toggle (V-gesture on right hand)
+            shift_mode = typer.check_shift(right_norm)
+
+            # Word erase (right fist)
+            text_buffer, erased = typer.check_word_erase(right_norm, text_buffer)
             if erased:
-                cv2.putText(frame, "[ ERASED 1 WORD ]", (w // 2 - 120, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
+                ai_answer = ""
+                cv2.putText(frame, "[ WORD ERASED ]", (w//2-110, 55),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (50, 50, 240), 2, cv2.LINE_AA)
 
-            # 2b. Finger Joint Touch Air Typing
-            char, touch_pt = knuckle_engine.detect_finger_joint_typing(target_landmarks)
+            # Character detection
+            char, touch_pt = typer.detect(left_norm, right_norm)
             if char is not None:
-                scribble.text_buffer += char
-                print(f"Typed: '{char}' -> Buffer: '{scribble.text_buffer}'")
+                if char == '\b':
+                    text_buffer = text_buffer[:-1]
+                else:
+                    text_buffer += char
+                ai_answer = ""
+                print(f"[TYPE] '{char}'  buffer='{text_buffer}'")
 
+            # Touch point indicator
             if touch_pt is not None:
-                px, py = int(touch_pt[0]), int(touch_pt[1])
-                if px <= 1 and py <= 1:
-                    px, py = int(px * w), int(py * h)
-                cv2.circle(frame, (px, py), 14, (0, 255, 255), -1, cv2.LINE_AA)
-                cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
+                px = int(touch_pt[0] * w)
+                py = int(touch_pt[1] * h)
+                cv2.circle(frame, (px, py), 16, (0, 255, 255), -1, cv2.LINE_AA)
+                lbl = char if char and char != ' ' else 'SPC'
+                cv2.putText(frame, f"'{lbl}'", (px+18, py-8),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 255), 2, cv2.LINE_AA)
 
-        # Step 3: Handle Toolbar Interaction (sidebar trigger + button hover)
-        active_mode, light_on, quit_signal = ui.check_interaction(
-            frame, landmarks_list, norm_landmarks, w, h, active_mode, light_on
+            # Visual keyboard targets on left hand
+            ui.draw_left_hand_targets(frame, left_px, shift_mode)
+
+        # ── Sidebar interaction ────────────────────────────────────────
+        # Use right hand (or first detected) for sidebar trigger
+        sidebar_lm_list = lm_list
+        sidebar_norm = right_norm if right_norm else (left_norm if left_norm else None)
+        active_mode, light_on, _ = ui.check_interaction(
+            frame, sidebar_lm_list, sidebar_norm, w, h, active_mode, light_on
         )
-        if quit_signal:
-            break
 
-        # Step 4: Execute Selected Mode
+        # ── AI Solve (double-tap '?' = ask AI when text ends with ?) ──
+        if text_buffer.endswith('?') and not ai_answer:
+            ai_answer = ai.solve(text_buffer)
+
+        # ── Render Mode ────────────────────────────────────────────────
         if active_mode == "WRITE":
-            ui.draw_notepad_card(frame, scribble.text_buffer)
-            scribble.update(frame, landmarks_list)
+            ui.draw_notepad_card(frame, text_buffer, ai_answer)
         else:
-            # WIREFRAME Mode: Clean 3D Mesh (matching video images 1 & 4)
-            wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
+            wireframe.draw_3d_spatial_mesh(frame, lm_list)
 
-        # Step 5: Render Dynamic Sidebar (only when sidebar_visible == True)
         ui.draw_right_toolbar(frame, active_mode, light_on)
-
-        # Step 6: FPS Badge
         ui.draw_top_fps_badge(frame, fps)
+        ui.draw_shift_indicator(frame, shift_mode)
 
         cv2.imshow(WINDOW_TITLE, frame)
-
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
             break
         elif key == ord('c'):
-            scribble.clear()
+            text_buffer = ""
+            ai_answer   = ""
 
     cap.release()
     cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()

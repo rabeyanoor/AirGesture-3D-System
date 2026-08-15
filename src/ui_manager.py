@@ -1,160 +1,188 @@
 import cv2
 import time
 import numpy as np
-from src.config import COLOR_WHITE, COLOR_BLACK, COLOR_CYAN
+
 
 class UIManager:
     def __init__(self):
-        self.hover_start_time = None
-        self.hovered_button = None
-        self.dwell_time = 0.45
+        self.hover_start = None
+        self.hovered_btn = None
+        self.dwell_time = 0.5
         self.sidebar_visible = False
 
+    # ------------------------------------------------------------------ #
+    # FPS Badge                                                            #
+    # ------------------------------------------------------------------ #
     def draw_top_fps_badge(self, img, fps):
-        """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
-        badge_str = f"{fps} FPS"
+        badge = f"{fps} FPS"
         overlay = img.copy()
-        cv2.rectangle(overlay, (25, 22), (110, 58), (50, 50, 50), -1)
-        cv2.addWeighted(overlay, 0.45, img, 0.55, 0, img)
-        cv2.rectangle(img, (25, 22), (110, 58), (140, 140, 140), 1, cv2.LINE_AA)
-        cv2.putText(img, badge_str, (36, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (240, 240, 240), 1, cv2.LINE_AA)
+        cv2.rectangle(overlay, (20, 18), (108, 54), (40, 40, 40), -1)
+        cv2.addWeighted(overlay, 0.5, img, 0.5, 0, img)
+        cv2.rectangle(img, (20, 18), (108, 54), (120, 120, 120), 1, cv2.LINE_AA)
+        cv2.putText(img, badge, (30, 42), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
+                    (240, 240, 240), 1, cv2.LINE_AA)
 
+    # ------------------------------------------------------------------ #
+    # Shift Mode Indicator                                                 #
+    # ------------------------------------------------------------------ #
+    def draw_shift_indicator(self, img, shift_on):
+        col = (0, 200, 80) if shift_on else (80, 80, 80)
+        label = "SHIFT: ON (M-X)" if shift_on else "SHIFT: OFF (A-L)"
+        overlay = img.copy()
+        cv2.rectangle(overlay, (20, 60), (220, 88), (30, 30, 30), -1)
+        cv2.addWeighted(overlay, 0.55, img, 0.45, 0, img)
+        cv2.putText(img, label, (28, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
+                    col, 1, cv2.LINE_AA)
+
+    # ------------------------------------------------------------------ #
+    # Right Sidebar                                                        #
+    # ------------------------------------------------------------------ #
     def draw_right_toolbar(self, img, active_mode, light_on):
-        """
-        Draws right vertical translucent toolbar panel with exact Power Icon matching user attachment.
-        """
         if not self.sidebar_visible:
             return
-
         h, w, _ = img.shape
-        panel_w = 80
-        panel_h = 340
-        px1 = w - panel_w - 25
-        py1 = (h - panel_h) // 2
-        px2 = w - 25
-        py2 = py1 + panel_h
+        pw, ph = 80, 300
+        px1 = w - pw - 20
+        py1 = (h - ph) // 2
+        px2, py2 = px1 + pw, py1 + ph
 
-        # Panel Translucent Background
         overlay = img.copy()
-        cv2.rectangle(overlay, (px1, py1), (px2, py2), (230, 235, 235), -1)
+        cv2.rectangle(overlay, (px1, py1), (px2, py2), (228, 232, 232), -1)
         cv2.addWeighted(overlay, 0.65, img, 0.35, 0, img)
-        cv2.rectangle(img, (px1, py1), (px2, py2), (190, 195, 195), 1, cv2.LINE_AA)
+        cv2.rectangle(img, (px1, py1), (px2, py2), (180, 185, 185), 1, cv2.LINE_AA)
 
-        buttons = self.get_button_rects(w, h)
-        for btn in buttons:
+        for btn in self._buttons(w, h):
             name, (bx1, by1, bx2, by2) = btn["name"], btn["rect"]
-
             is_active = (name == "NOTEPAD" and active_mode == "WRITE") or \
                         (name == "LIGHT" and light_on)
+            bov = img.copy()
+            cv2.rectangle(bov, (bx1, by1), (bx2, by2),
+                          (190, 210, 175) if is_active else (255, 255, 255), -1)
+            cv2.addWeighted(bov, 0.85, img, 0.15, 0, img)
+            cv2.rectangle(img, (bx1, by1), (bx2, by2), (150, 150, 150), 1, cv2.LINE_AA)
 
-            btn_overlay = img.copy()
-            bg_col = (200, 215, 185) if is_active else (255, 255, 255)
-            cv2.rectangle(btn_overlay, (bx1, by1), (bx2, by2), bg_col, -1)
-            cv2.addWeighted(btn_overlay, 0.85, img, 0.15, 0, img)
-            cv2.rectangle(img, (bx1, by1), (bx2, by2), (160, 160, 160), 1, cv2.LINE_AA)
-
-            cx = (bx1 + bx2) // 2
-            cy = (by1 + by2) // 2
-
+            cx, cy = (bx1 + bx2) // 2, (by1 + by2) // 2
             if name == "LIGHT":
-                # Light Bulb Icon 💡
-                icon_col = (0, 165, 255) if light_on else (50, 50, 50)
-                cv2.circle(img, (cx, cy - 3), 12, icon_col, 2, cv2.LINE_AA)
-                cv2.rectangle(img, (cx - 5, cy + 9), (cx + 5, cy + 14), icon_col, -1)
-                cv2.line(img, (cx - 3, cy + 17), (cx + 3, cy + 17), icon_col, 2)
+                col = (0, 165, 255) if light_on else (50, 50, 50)
+                cv2.circle(img, (cx, cy - 3), 12, col, 2, cv2.LINE_AA)
+                cv2.rectangle(img, (cx-5, cy+9), (cx+5, cy+14), col, -1)
+                cv2.line(img, (cx-3, cy+17), (cx+3, cy+17), col, 2)
             elif name == "NOTEPAD":
-                # Notepad Document Icon 📑
-                icon_col = (0, 100, 220) if active_mode == "WRITE" else (50, 50, 50)
-                cv2.rectangle(img, (cx - 13, cy - 15), (cx + 13, cy + 15), icon_col, 2, cv2.LINE_AA)
-                cv2.line(img, (cx - 8, cy - 7), (cx + 8, cy - 7), icon_col, 1)
-                cv2.line(img, (cx - 8, cy), (cx + 8, cy), icon_col, 1)
-                cv2.line(img, (cx - 8, cy + 7), (cx + 8, cy + 7), icon_col, 1)
+                col = (0, 100, 220) if active_mode == "WRITE" else (50, 50, 50)
+                cv2.rectangle(img, (cx-13, cy-15), (cx+13, cy+15), col, 2, cv2.LINE_AA)
+                for dy in [-7, 0, 7]:
+                    cv2.line(img, (cx-8, cy+dy), (cx+8, cy+dy), col, 1)
             elif name == "POWER":
-                # Power Icon ⏻ matching user attachment (circle with top vertical stroke)
-                icon_col = (180, 40, 40)
-                cv2.ellipse(img, (cx, cy + 3), (13, 13), 0, 45, 315, icon_col, 2, cv2.LINE_AA)
-                cv2.line(img, (cx, cy - 13), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
+                col = (170, 35, 35)
+                cv2.ellipse(img, (cx, cy+3), (13, 13), 0, 45, 315, col, 2, cv2.LINE_AA)
+                cv2.line(img, (cx, cy-13), (cx, cy-1), col, 2, cv2.LINE_AA)
 
-    def draw_notepad_card(self, img, text_content=""):
-        """Draws left-side translucent Notepad card with ruling lines."""
+    # ------------------------------------------------------------------ #
+    # Notepad Card                                                         #
+    # ------------------------------------------------------------------ #
+    def draw_notepad_card(self, img, text_buffer, ai_answer=""):
         h, w, _ = img.shape
-        nx1, ny1 = 45, 80
-        nw, nh = 470, 420
+        nx1, ny1 = 40, 70
+        nw, nh = min(520, w - 140), 420
         nx2, ny2 = nx1 + nw, ny1 + nh
 
-        # Card Translucent Overlay
         overlay = img.copy()
-        cv2.rectangle(overlay, (nx1, ny1), (nx2, ny2), (240, 240, 240), -1)
-        cv2.addWeighted(overlay, 0.40, img, 0.60, 0, img)
-        cv2.rectangle(img, (nx1, ny1), (nx2, ny2), (190, 190, 190), 1, cv2.LINE_AA)
+        cv2.rectangle(overlay, (nx1, ny1), (nx2, ny2), (242, 242, 242), -1)
+        cv2.addWeighted(overlay, 0.42, img, 0.58, 0, img)
+        cv2.rectangle(img, (nx1, ny1), (nx2, ny2), (185, 185, 185), 1, cv2.LINE_AA)
 
-        # Title NOTEPAD
-        cv2.putText(img, "NOTEPAD", (nx1 + 25, ny1 + 35), cv2.FONT_HERSHEY_DUPLEX, 0.65, (70, 70, 70), 1, cv2.LINE_AA)
+        cv2.putText(img, "NOTEPAD", (nx1+20, ny1+30),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.6, (60, 60, 60), 1, cv2.LINE_AA)
 
-        # Horizontal Notebook Ruling Lines
-        line_spacing = 32
+        # Ruling lines
+        line_gap = 30
         lines_y = []
-        for y in range(ny1 + 65, ny2 - 20, line_spacing):
-            cv2.line(img, (nx1 + 20, y), (nx2 - 20, y), (220, 220, 220), 1, cv2.LINE_AA)
+        for y in range(ny1+55, ny2-15, line_gap):
+            cv2.line(img, (nx1+15, y), (nx2-15, y), (215, 215, 215), 1, cv2.LINE_AA)
             lines_y.append(y)
 
-        # Render Text onto Notepad Lines
-        display_str = text_content if text_content else "Hello World"
-        text_color = (20, 20, 20)
-        first_line_y = lines_y[0] - 6
-        cv2.putText(img, display_str, (nx1 + 30, first_line_y), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2, cv2.LINE_AA)
+        # Typed text
+        display = text_buffer if text_buffer else ""
+        if display:
+            cv2.putText(img, display, (nx1+20, lines_y[0]-5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.68, (15, 15, 15), 2, cv2.LINE_AA)
 
-    def get_button_rects(self, w, h):
-        panel_h = 340
-        py1 = (h - panel_h) // 2
-        bw, bh = 60, 60
-        bx1 = w - 25 - 70
-        
+        # AI answer
+        if ai_answer and len(lines_y) > 2:
+            cv2.putText(img, f"AI: {ai_answer}", (nx1+20, lines_y[2]-5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (30, 100, 200), 2, cv2.LINE_AA)
+
+    # ------------------------------------------------------------------ #
+    # Left-hand Joint Overlay (visual keyboard targets)                   #
+    # ------------------------------------------------------------------ #
+    def draw_left_hand_targets(self, img, left_pixel_lm, shift_mode):
+        """Draws colored circles on left hand joints to show typing targets."""
+        if not left_pixel_lm:
+            return
+
+        NORMAL_MAP = {8:'A',7:'B',6:'C',12:'D',11:'E',10:'F',
+                      16:'G',15:'H',14:'I',20:'J',19:'K',18:'L',
+                      4:'Y', 3:'Z', 9:'_', 0:'⌫'}
+        SHIFT_MAP  = {8:'M',7:'N',6:'O',12:'P',11:'Q',10:'R',
+                      16:'S',15:'T',14:'U',20:'V',19:'W',18:'X',
+                      4:'Y', 3:'Z', 9:'_', 0:'⌫'}
+
+        char_map = SHIFT_MAP if shift_mode else NORMAL_MAP
+        col = (0, 220, 60) if shift_mode else (0, 200, 255)
+
+        for joint_id, char in char_map.items():
+            if joint_id >= len(left_pixel_lm):
+                continue
+            px, py = left_pixel_lm[joint_id][0], left_pixel_lm[joint_id][1]
+            cv2.circle(img, (px, py), 10, col, -1, cv2.LINE_AA)
+            cv2.putText(img, char, (px + 12, py + 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1, cv2.LINE_AA)
+
+    # ------------------------------------------------------------------ #
+    # Interaction (sidebar trigger + button hover)                        #
+    # ------------------------------------------------------------------ #
+    def _buttons(self, w, h):
+        ph = 300
+        py1 = (h - ph) // 2
+        bx1 = w - 20 - 70
+        bw = bh = 55
         return [
-            {"name": "LIGHT", "rect": (bx1, py1 + 20, bx1 + bw, py1 + 20 + bh)},
-            {"name": "NOTEPAD", "rect": (bx1, py1 + 115, bx1 + bw, py1 + 115 + bh)},
-            {"name": "POWER", "rect": (bx1, py1 + 210, bx1 + bw, py1 + 210 + bh)},
+            {"name": "LIGHT",   "rect": (bx1, py1+15,  bx1+bw, py1+15+bh)},
+            {"name": "NOTEPAD", "rect": (bx1, py1+95,  bx1+bw, py1+95+bh)},
+            {"name": "POWER",   "rect": (bx1, py1+175, bx1+bw, py1+175+bh)},
         ]
 
+    def get_button_rects(self, w, h):
+        """Public alias for test compatibility."""
+        return self._buttons(w, h)
+
     def check_interaction(self, img, landmarks_list, norm_landmarks, w, h, active_mode, light_on):
-        """
-        1. Boundary Check: Index finger tip (Landmark 8) x > 0.88 triggers sidebar_visible = True.
-        2. Handles dwell selection on sidebar buttons.
-        """
-        if norm_landmarks and len(norm_landmarks) >= 21:
-            index_tip_x = norm_landmarks[8].x
-            if index_tip_x > 0.88:
+        # Index finger x > 0.88 → show sidebar
+        if norm_landmarks and len(norm_landmarks) >= 9:
+            if norm_landmarks[8].x > 0.88:
                 self.sidebar_visible = True
 
         if not self.sidebar_visible and active_mode != "WRITE":
             return active_mode, light_on, False
 
         if not landmarks_list:
-            self.hover_start_time = None
-            self.hovered_button = None
+            self.hover_start = None
+            self.hovered_btn = None
             return active_mode, light_on, False
 
-        index_pt = landmarks_list[0][8][:2]
-        ix, iy = index_pt
-
-        buttons = self.get_button_rects(w, h)
+        ix, iy = landmarks_list[0][8][:2]
         hovered_now = None
-
-        for btn in buttons:
-            name, (bx1, by1, bx2, by2) = btn["name"], btn["rect"]
+        for btn in self._buttons(w, h):
+            n, (bx1, by1, bx2, by2) = btn["name"], btn["rect"]
             if bx1 <= ix <= bx2 and by1 <= iy <= by2:
-                hovered_now = name
+                hovered_now = n
                 break
 
-        quit_signal = False
-
         if hovered_now:
-            if self.hovered_button == hovered_now:
-                elapsed = time.time() - self.hover_start_time
-                progress_angle = int((elapsed / self.dwell_time) * 360)
-                cv2.ellipse(img, (ix, iy), (16, 16), 0, 0, progress_angle, (0, 255, 0), 2)
-
+            if self.hovered_btn == hovered_now:
+                elapsed = time.time() - self.hover_start
+                ang = int(min(elapsed / self.dwell_time, 1.0) * 360)
+                cv2.ellipse(img, (ix, iy), (18, 18), 0, 0, ang, (0, 230, 80), 2)
                 if elapsed >= self.dwell_time:
                     if hovered_now == "NOTEPAD":
                         active_mode = "WRITE" if active_mode != "WRITE" else "WIREFRAME"
@@ -165,12 +193,12 @@ class UIManager:
                     elif hovered_now == "POWER":
                         active_mode = "WIREFRAME"
                         self.sidebar_visible = False
-                    self.hover_start_time = time.time() + 0.5
+                    self.hover_start = time.time() + 0.6
             else:
-                self.hovered_button = hovered_now
-                self.hover_start_time = time.time()
+                self.hovered_btn = hovered_now
+                self.hover_start = time.time()
         else:
-            self.hovered_button = None
-            self.hover_start_time = None
+            self.hovered_btn = None
+            self.hover_start = None
 
-        return active_mode, light_on, quit_signal
+        return active_mode, light_on, False
