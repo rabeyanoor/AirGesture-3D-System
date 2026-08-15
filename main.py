@@ -38,6 +38,25 @@ def open_camera(preferred=0):
     return None
 
 
+def create_simulation_frame(t):
+    """Generates an interactive AR simulation canvas when webcam hardware is off."""
+    frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+    # Subtle dark desktop background
+    cv2.rectangle(frame, (0, 0), (1280, 720), (28, 30, 36), -1)
+    
+    # Grid lines
+    for x in range(0, 1280, 80):
+        cv2.line(frame, (x, 0), (x, 720), (38, 40, 48), 1)
+    for y in range(0, 720, 80):
+        cv2.line(frame, (0, y), (1280, y), (38, 40, 48), 1)
+
+    cv2.putText(frame, "Webcam Hardware Disconnected (Fn + Camera key / USB)", (330, 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (160, 160, 160), 1, cv2.LINE_AA)
+    cv2.putText(frame, "AR Simulation Active - Connect Camera to enable live tracking", (310, 690),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 200, 255), 1, cv2.LINE_AA)
+    return frame
+
+
 def main():
     parser = argparse.ArgumentParser(description="Spatial Vision AR")
     parser.add_argument("--source", default=0)
@@ -64,6 +83,7 @@ def main():
     fps_time = time.time()
     last_cam_retry = 0
     fps = 30
+    sim_t = 0.0
 
     cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
 
@@ -87,9 +107,8 @@ def main():
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
-            frame = np.zeros((720, 1280, 3), dtype=np.uint8)
-            cv2.putText(frame, "Webcam Feed Unavailable - Please Connect Webcam", (240, 360),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2, cv2.LINE_AA)
+            sim_t += 0.03
+            frame = create_simulation_frame(sim_t)
         else:
             frame = cv2.flip(frame, 1)
 
