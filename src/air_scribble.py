@@ -1,16 +1,18 @@
 import cv2
 import numpy as np
-from src.config import PINCH_THRESHOLD, COLOR_BLACK
 
 class AirScribble:
-    def __init__(self, pinch_thresh=PINCH_THRESHOLD):
+    def __init__(self, pinch_thresh=32):
         self.canvas = None
         self.prev_x = 0
         self.prev_y = 0
         self.pinch_thresh = pinch_thresh
 
     def update(self, frame, landmarks_list):
-        """Processes finger movements and draws smooth dark ink strokes on notepad."""
+        """
+        Draws ink ONLY when Index Tip and Thumb Tip are pinched together (pinch_dist < 32).
+        Otherwise shows a green pointer cursor without drawing any line.
+        """
         h, w, _ = frame.shape
         if self.canvas is None:
             self.canvas = np.zeros((h, w, 3), dtype=np.uint8)
@@ -25,19 +27,21 @@ class AirScribble:
 
         distance = np.hypot(index_tip[0] - thumb_tip[0], index_tip[1] - thumb_tip[1])
 
-        # Active writing when Index & Thumb pinch close together or index tip trace
-        if distance < self.pinch_thresh or distance < 60:
+        # Active Ink Drawing ONLY when Pinching (Index + Thumb touching)
+        if distance < self.pinch_thresh:
             if self.prev_x == 0 and self.prev_y == 0:
                 self.prev_x, self.prev_y = index_tip
 
-            # Draw ink line on canvas
-            cv2.line(self.canvas, (self.prev_x, self.prev_y), index_tip, (30, 30, 30), 3, cv2.LINE_AA)
+            # Draw smooth black ink stroke segment
+            cv2.line(self.canvas, (self.prev_x, self.prev_y), index_tip, (20, 20, 20), 4, cv2.LINE_AA)
             self.prev_x, self.prev_y = index_tip
 
-            # Visual red/cyan pointer dot on fingertip
-            cv2.circle(frame, index_tip, 4, (0, 0, 255), -1, cv2.LINE_AA)
+            # Active red indicator dot on pinch point
+            cv2.circle(frame, index_tip, 6, (0, 0, 255), -1, cv2.LINE_AA)
         else:
             self.prev_x, self.prev_y = 0, 0
+            # Hover cursor dot (green) on index tip when hand is open
+            cv2.circle(frame, index_tip, 5, (0, 255, 0), -1, cv2.LINE_AA)
 
     def clear(self):
         if self.canvas is not None:

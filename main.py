@@ -27,7 +27,7 @@ def main():
     ocr = OCREngine()
     ui = UIManager()
 
-    active_mode = "WIREFRAME" # Default mode matches wireframe demo
+    active_mode = "WIREFRAME"
     light_on = False
     recognized_text = []
 
@@ -53,19 +53,19 @@ def main():
         landmarks_list, handedness_list, _ = tracker.process(frame)
 
         # Step 2: Handle Right Toolbar Interaction
-        active_mode, light_on, quit_signal = ui.check_interaction(
-            frame, landmarks_list, w, h, active_mode, light_on
+        active_mode, light_on, trigger_ocr = ui.check_interaction(
+            frame, landmarks_list, w, h, active_mode, light_on, scribble
         )
-        if quit_signal:
-            break
 
-        # Step 3: Draw Left Side NOTEPAD card if WRITE mode is active
+        if trigger_ocr:
+            recognized_text = ocr.recognize(scribble.canvas)
+
+        # Step 3: Mode Execution
         if active_mode == "WRITE":
-            ui.draw_notepad_card(frame)
+            ui.draw_notepad_card(frame, recognized_text)
             scribble.update(frame, landmarks_list)
             frame = scribble.merge_with_frame(frame)
         else:
-            # Render 3D Spatial Wireframe & Mesh with landmark coordinate text
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
         # Step 4: Render Right Vertical Toolbar Panel
@@ -81,9 +81,10 @@ def main():
             break
         elif key == ord('s'):
             recognized_text = ocr.recognize(scribble.canvas)
-            print("Recognized Text Output:", recognized_text)
+            print("OCR Output:", recognized_text)
         elif key == ord('c'):
             scribble.clear()
+            recognized_text = []
 
     cap.release()
     cv2.destroyAllWindows()
