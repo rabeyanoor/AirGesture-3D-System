@@ -42,7 +42,9 @@ def main():
     ui = UIManager()
     knuckle_engine = KnuckleGestureEngine(cooldown=0.45)
 
-    active_mode = "WIREFRAME"
+    # Default to WRITE mode so Notepad paper lines are active immediately!
+    active_mode = "WRITE"
+    ui.sidebar_visible = True
     light_on = False
 
     fps_eval_time = time.time()
@@ -83,8 +85,10 @@ def main():
             # Step 3: Direct Finger Joint Touch Air Typing
             char, touch_pt = knuckle_engine.detect_finger_joint_typing(norm_landmarks)
             if char is not None:
+                active_mode = "WRITE"
+                ui.sidebar_visible = True
                 scribble.text_buffer += char
-                print(f"Typed Character: '{char}' -> Buffer: '{scribble.text_buffer}'")
+                print(f"Typed Character: '{char}' -> Current Notepad Buffer: '{scribble.text_buffer}'")
 
             if touch_pt is not None:
                 px, py = int(touch_pt[0] * w), int(touch_pt[1] * h)
@@ -92,7 +96,7 @@ def main():
                 cv2.putText(frame, f"+ '{char}'", (px + 15, py - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 255), 2, cv2.LINE_AA)
 
-        # Step 4: Handle 5-Finger Open Hand Sidebar Trigger & Interaction
+        # Step 4: Handle Toolbar Interaction
         active_mode, light_on, quit_signal = ui.check_interaction(
             frame, landmarks_list, norm_landmarks, w, h, active_mode, light_on
         )
@@ -104,10 +108,9 @@ def main():
             ui.draw_notepad_card(frame, scribble.text_buffer)
             scribble.update(frame, landmarks_list)
         else:
-            # WIREFRAME Mode: Clean 3D Mesh & Coordinates matching video 0:00 to 0:09
             wireframe.draw_3d_spatial_mesh(frame, landmarks_list)
 
-        # Step 6: Render Dynamic Sidebar ONLY when sidebar_visible == True
+        # Step 6: Render Dynamic Sidebar
         ui.draw_right_toolbar(frame, active_mode, light_on)
 
         # Step 7: Render Top-Left ( 28 FPS ) Capsule Badge

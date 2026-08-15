@@ -21,7 +21,7 @@ class UIManager:
 
     def draw_right_toolbar(self, img, active_mode, light_on):
         """
-        Draws right vertical translucent toolbar panel ONLY when sidebar_visible is True.
+        Draws right vertical translucent toolbar panel with exact Power Icon matching user attachment.
         """
         if not self.sidebar_visible:
             return
@@ -70,10 +70,10 @@ class UIManager:
                 cv2.line(img, (cx - 8, cy), (cx + 8, cy), icon_col, 1)
                 cv2.line(img, (cx - 8, cy + 7), (cx + 8, cy + 7), icon_col, 1)
             elif name == "POWER":
-                # Power Icon ⏻
-                icon_col = (40, 40, 180)
-                cv2.ellipse(img, (cx, cy + 2), (12, 12), 0, 40, 320, icon_col, 2, cv2.LINE_AA)
-                cv2.line(img, (cx, cy - 12), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
+                # Power Icon ⏻ matching user attachment (circle with top vertical stroke)
+                icon_col = (180, 40, 40)
+                cv2.ellipse(img, (cx, cy + 3), (14, 14), 0, 45, 315, icon_col, 2, cv2.LINE_AA)
+                cv2.line(img, (cx, cy - 13), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
 
     def draw_notepad_card(self, img, text_content=""):
         """Draws left-side translucent Notepad card with ruling lines."""
@@ -164,6 +164,7 @@ class UIManager:
                         light_on = not light_on
                     elif hovered_now == "POWER":
                         self.sidebar_visible = False
+                        quit_signal = True
                     self.hover_start_time = time.time() + 0.5
             else:
                 self.hovered_button = hovered_now
