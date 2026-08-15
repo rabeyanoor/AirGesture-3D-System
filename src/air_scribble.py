@@ -7,13 +7,14 @@ class AirScribble:
         self.prev_x = 0
         self.prev_y = 0
         self.pinch_thresh = pinch_thresh
-        self.text_buffer = "Hello, My name is P Kha"
+        self.text_buffer = ""
         self.is_pinching = False
+        self.last_stroke_time = 0
 
     def update(self, frame, landmarks_list):
         """
-        Processes hand gestures. Pinching index + thumb triggers air writing / stroke tracing.
-        Hovering index finger displays a green cursor without drawing unwanted lines.
+        Processes hand gestures for dynamic air-writing.
+        Pinching index + thumb draws stroke. When pinch releases, stroke is recorded.
         """
         h, w, _ = frame.shape
         if self.canvas is None:

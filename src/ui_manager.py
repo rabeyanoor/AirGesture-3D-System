@@ -7,10 +7,10 @@ class UIManager:
     def __init__(self):
         self.hover_start_time = None
         self.hovered_button = None
-        self.dwell_time = 0.45  # Hover dwell duration for selection
+        self.dwell_time = 0.45
 
     def draw_top_fps_badge(self, img, fps):
-        """Draws top-left rounded FPS capsule badge matching video (e.g. 19 FPS / 28 FPS / 31 FPS)."""
+        """Draws top-left rounded FPS capsule badge matching video (e.g. 28 FPS / 31 FPS)."""
         badge_str = f"{fps} FPS"
         overlay = img.copy()
         cv2.rectangle(overlay, (25, 22), (110, 58), (50, 50, 50), -1)
@@ -20,10 +20,7 @@ class UIManager:
 
     def draw_right_toolbar(self, img, active_mode, light_on):
         """
-        Draws right vertical translucent toolbar panel with 3 buttons matching video_2026-08-15_16-15-48.mp4:
-        1. Light Bulb 💡
-        2. Notepad 📑
-        3. Power ⏻
+        Draws right vertical translucent toolbar panel with Light, Notepad, and Power buttons.
         """
         h, w, _ = img.shape
         panel_w = 80
@@ -69,13 +66,13 @@ class UIManager:
                 cv2.line(img, (cx - 8, cy), (cx + 8, cy), icon_col, 1)
                 cv2.line(img, (cx - 8, cy + 7), (cx + 8, cy + 7), icon_col, 1)
             elif name == "POWER":
-                # Power Icon ⏻ (Circle outline with vertical top line)
+                # Power Icon ⏻
                 icon_col = (40, 40, 180)
                 cv2.ellipse(img, (cx, cy + 2), (12, 12), 0, 40, 320, icon_col, 2, cv2.LINE_AA)
                 cv2.line(img, (cx, cy - 12), (cx, cy - 1), icon_col, 2, cv2.LINE_AA)
 
-    def draw_notepad_card(self, img, text_content="Hello, My name is P Kha"):
-        """Draws left-side translucent Notepad card with ruling lines and typed text overlay matching video."""
+    def draw_notepad_card(self, img, text_content=""):
+        """Draws left-side translucent Notepad card with ruling lines and dynamic typed text overlay."""
         h, w, _ = img.shape
         nx1, ny1 = 45, 80
         nw, nh = 470, 420
@@ -97,7 +94,7 @@ class UIManager:
             cv2.line(img, (nx1 + 20, y), (nx2 - 20, y), (220, 220, 220), 1, cv2.LINE_AA)
             lines_y.append(y)
 
-        # Render Text onto Notepad Line 1 matching video_2026-08-15_16-15-48.mp4
+        # Render Dynamic Text onto Notepad Lines
         if text_content:
             first_line_y = lines_y[0] - 6
             cv2.putText(img, text_content, (nx1 + 30, first_line_y), 
