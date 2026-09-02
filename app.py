@@ -3,6 +3,9 @@ Spatial Vision AR - Hugging Face Space Entry Point
 Gradio Real-Time Webcam / Video Processor for Touchless Phalanx Typing & AR 3D Hand Mesh.
 """
 
+import os
+os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
+
 import cv2
 import numpy as np
 import gradio as gr
@@ -135,8 +138,7 @@ with gr.Blocks(title="Spatial Vision AR - AirGesture 3D System") as demo:
     input_image.stream(
         fn=process_frame,
         inputs=[input_image, mode_dropdown, notepad_toggle],
-        outputs=[input_image, typed_output],
-        stream_every=0.04
+        outputs=[input_image, typed_output]
     )
 
     clear_btn.click(fn=clear_buffer, outputs=[typed_output])
