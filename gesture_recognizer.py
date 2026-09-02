@@ -237,11 +237,12 @@ class GestureRecognizer:
 
         return selected_group, typed_char
 
-    def detect_phalanx_keyboard(self, left_hand, right_hand, frame_w, frame_h, touch_threshold=22):
+    def detect_phalanx_keyboard(self, left_hand, right_hand, frame_w, frame_h, touch_threshold=17):
         """
         Finger Phalanx Keyboard (Chorded Finger Mapping A-Z):
-        Uses 3D Z-Depth Verification + 22px Tight Touch Threshold + Nearest-Neighbor Selection
+        Uses 3D Z-Depth Verification + 17px Tight Touch Threshold + Nearest-Neighbor Selection
         to guarantee ZERO AUTO-TYPING false positives when hands are resting.
+        - Thumb-to-Palm Touch (Thumb 4 touches Palm 9): Deletes Last Word
         - Left Hand (Thumb Tip 4 touches joints 8,7,6 | 12,11,10 | 16,15,14 | 20,19,18): Letters A to L
         - Right Hand (Thumb Tip 4 touches joints 8,7,6 | 12,11,10 | 16,15,14 | 20,19,18): Letters M to X
         - Dual Thumb Touch (Left Thumb 4 + Right Thumb 4): Letter Y
@@ -249,11 +250,33 @@ class GestureRecognizer:
         """
         now = time.time()
 
-        # Cooldown guard (0.35s debounce delay)
-        if now - getattr(self, 'last_phalanx_time', 0) < 0.35:
+        # Cooldown guard (0.40s debounce delay)
+        if now - getattr(self, 'last_phalanx_time', 0) < 0.40:
             return None
 
-        # 1. Fist Gesture (Backspace / Delete Word)
+        # 1. Thumb-to-Palm Touch Gesture (Delete Last Word)
+        # Check if thumb tip (4) touches palm center (9) of left or right hand
+        if left_hand:
+            l_thumb = left_hand['px'][4]
+            l_palm = left_hand['px'][9]
+            dist_l_palm = math.hypot(l_thumb[0] - l_palm[0], l_thumb[1] - l_palm[1])
+            if dist_l_palm < 26:
+                if now - getattr(self, 'last_thumb_delete_time', 0) > 0.6:
+                    self.last_thumb_delete_time = now
+                    self.last_phalanx_time = now
+                    return '<DELETE_WORD>'
+
+        if right_hand:
+            r_thumb = right_hand['px'][4]
+            r_palm = right_hand['px'][9]
+            dist_r_palm = math.hypot(r_thumb[0] - r_palm[0], r_thumb[1] - r_palm[1])
+            if dist_r_palm < 26:
+                if now - getattr(self, 'last_thumb_delete_time', 0) > 0.6:
+                    self.last_thumb_delete_time = now
+                    self.last_phalanx_time = now
+                    return '<DELETE_WORD>'
+
+        # 2. Fist Gesture (Backspace / Delete Word Backup)
         if (left_hand and self.is_fist(left_hand)) or (right_hand and self.is_fist(right_hand)):
             if now - getattr(self, 'last_fist_delete_time', 0) > 1.0:
                 self.last_fist_delete_time = now
@@ -261,7 +284,7 @@ class GestureRecognizer:
                 return '<DELETE_WORD>'
             return None
 
-        # 2. Dual-Hand Gestures (Letters Y and Z)
+        # 3. Dual-Hand Gestures (Letters Y and Z)
         if left_hand and right_hand:
             l_px = left_hand['px']
             r_px = right_hand['px']
@@ -271,20 +294,20 @@ class GestureRecognizer:
             # Letter Y: Left Thumb 4 + Right Thumb 4
             d_thumbs_2d = math.hypot(l_px[4][0] - r_px[4][0], l_px[4][1] - r_px[4][1])
             dz_thumbs = abs(l_lm[4].z - r_lm[4].z)
-            if d_thumbs_2d < 26 and dz_thumbs < 0.05:
+            if d_thumbs_2d < 22 and dz_thumbs < 0.04:
                 self.last_phalanx_time = now
                 return 'y'
 
             # Letter Z: Left Index 8 + Right Index 8
             d_indices_2d = math.hypot(l_px[8][0] - r_px[8][0], l_px[8][1] - r_px[8][1])
             dz_indices = abs(l_lm[8].z - r_lm[8].z)
-            if d_indices_2d < 26 and dz_indices < 0.05:
+            if d_indices_2d < 22 and dz_indices < 0.04:
                 self.last_phalanx_time = now
                 return 'z'
 
         candidates = []
 
-        # 3. Left Hand Phalanx Mapping (Letters A to L, Space, Delete Word)
+        # 4. Left Hand Phalanx Mapping (Letters A to L, Space)
         if left_hand:
             l_px = left_hand['px']
             l_lm = left_hand['landmarks'].landmark
@@ -304,10 +327,10 @@ class GestureRecognizer:
                 dist_2d = math.hypot(l_thumb_pt[0] - joint_pt[0], l_thumb_pt[1] - joint_pt[1])
                 dz = abs(l_thumb_z - l_lm[lm_id].z)
 
-                if dist_2d < touch_threshold and dz < 0.042:
+                if dist_2d < touch_threshold and dz < 0.038:
                     candidates.append((dist_2d, letter))
 
-        # 4. Right Hand Phalanx Mapping (Letters M to X, Space)
+        # 5. Right Hand Phalanx Mapping (Letters M to X, Space)
         if right_hand:
             r_px = right_hand['px']
             r_lm = right_hand['landmarks'].landmark
@@ -327,10 +350,10 @@ class GestureRecognizer:
                 dist_2d = math.hypot(r_thumb_pt[0] - joint_pt[0], r_thumb_pt[1] - joint_pt[1])
                 dz = abs(r_thumb_z - r_lm[lm_id].z)
 
-                if dist_2d < touch_threshold and dz < 0.042:
+                if dist_2d < touch_threshold and dz < 0.038:
                     candidates.append((dist_2d, letter))
 
-        # 5. Nearest-Neighbor Selection
+        # 6. Nearest-Neighbor Selection
         if candidates:
             candidates.sort(key=lambda x: x[0])
             best_dist, best_letter = candidates[0]
