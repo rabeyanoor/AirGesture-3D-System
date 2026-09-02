@@ -134,17 +134,10 @@ def main():
         # -------------------------------------------------------------
         # 2. Gesture Logic Processing
         # -------------------------------------------------------------
-        for hand in hands_data:
-            # A. Fist Gesture (Delete Last Word)
-            if recognizer.is_fist(hand):
-                if not recognizer.fist_triggered:
-                    words = text_buffer.strip().split(' ')
-                    text_buffer = ' '.join(words[:-1]) if len(words) > 1 else ""
-                    text_buffer = AutoCapitalizer.format_text(text_buffer)
-                    recognizer.fist_triggered = True
-                active_gesture = "FIST (DELETE WORD)"
-            else:
-                recognizer.fist_triggered = False
+        # A. Fist Gesture Display Status
+        fist_detected = (left_hand and recognizer.is_fist(left_hand)) or (right_hand and recognizer.is_fist(right_hand))
+        if fist_detected:
+            active_gesture = "FIST GESTURE"
 
         # B. Palm Touch / Press for Space Insertion
         if left_hand and right_hand:
@@ -251,7 +244,7 @@ def main():
             cur_idx = modes.index(active_mode) if active_mode in modes else 0
             active_mode = modes[(cur_idx + 1) % len(modes)]
             print(f"--> Switched Active Mode to: {active_mode}")
-        elif key in [8, 255, ord('b')]:  # Backspace key or 'b'
+        elif key in [8, ord('b')]:  # ASCII Backspace key (8) or 'b'
             text_buffer = text_buffer[:-1]
             print("--> Backspace: Deleted last character.")
         elif key == ord('w'):  # Delete Word key

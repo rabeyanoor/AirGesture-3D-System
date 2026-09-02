@@ -33,18 +33,21 @@ class GestureRecognizer:
     @staticmethod
     def is_fist(hand_dict):
         """
-        Check if index, middle, ring, and pinky tips are folded down past their PIP joints.
+        Check if index, middle, ring, and pinky tips are tightly folded into palm (3D distance check).
+        Prevents false positive triggers when hand is resting or pointing downwards.
         """
         if not hand_dict:
             return False
 
         landmarks = hand_dict['landmarks'].landmark
-        tips = [8, 12, 16, 20]
-        pip_joints = [6, 10, 14, 18]
+        # Pairs: (Fingertip ID, MCP Joint Base ID)
+        pairs = [(8, 5), (12, 9), (16, 13), (20, 17)]
 
         folded_count = 0
-        for tip, pip in zip(tips, pip_joints):
-            if landmarks[tip].y > landmarks[pip].y:
+        for tip, mcp in pairs:
+            dist = math.hypot(landmarks[tip].x - landmarks[mcp].x, landmarks[tip].y - landmarks[mcp].y)
+            dz = abs(landmarks[tip].z - landmarks[mcp].z)
+            if dist < 0.085 and dz < 0.06:
                 folded_count += 1
 
         return folded_count >= 4
@@ -252,8 +255,11 @@ class GestureRecognizer:
 
         # 1. Fist Gesture (Backspace / Delete Word)
         if (left_hand and self.is_fist(left_hand)) or (right_hand and self.is_fist(right_hand)):
-            self.last_phalanx_time = now
-            return '<DELETE_WORD>'
+            if now - getattr(self, 'last_fist_delete_time', 0) > 1.0:
+                self.last_fist_delete_time = now
+                self.last_phalanx_time = now
+                return '<DELETE_WORD>'
+            return None
 
         # 2. Dual-Hand Gestures (Letters Y and Z)
         if left_hand and right_hand:
@@ -290,7 +296,7 @@ class GestureRecognizer:
                 (12, 'd'), (11, 'e'), (10, 'f'),       # Middle Finger (d, e, f)
                 (16, 'g'), (15, 'h'), (14, 'i'),       # Ring Finger (g, h, i)
                 (20, 'j'), (19, 'k'), (18, 'l'),        # Pinky Finger (j, k, l)
-                (5, ' '), (17, '<DELETE_WORD>')        # Knuckle 5 (Space), Knuckle 17 (Delete Word)
+                (5, ' ')                               # Knuckle 5 (Space)
             ]
 
             for lm_id, letter in left_map:
@@ -301,7 +307,7 @@ class GestureRecognizer:
                 if dist_2d < touch_threshold and dz < 0.042:
                     candidates.append((dist_2d, letter))
 
-        # 4. Right Hand Phalanx Mapping (Letters M to X, Space, Delete Word)
+        # 4. Right Hand Phalanx Mapping (Letters M to X, Space)
         if right_hand:
             r_px = right_hand['px']
             r_lm = right_hand['landmarks'].landmark
@@ -313,7 +319,7 @@ class GestureRecognizer:
                 (12, 'p'), (11, 'q'), (10, 'r'),       # Middle Finger (p, q, r)
                 (16, 's'), (15, 't'), (14, 'u'),       # Ring Finger (s, t, u)
                 (20, 'v'), (19, 'w'), (18, 'x'),        # Pinky Finger (v, w, x)
-                (5, ' '), (17, '<DELETE_WORD>')        # Knuckle 5 (Space), Knuckle 17 (Delete Word)
+                (5, ' ')                               # Knuckle 5 (Space)
             ]
 
             for lm_id, letter in right_map:
