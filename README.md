@@ -1,63 +1,51 @@
-# 🌌 Spatial Vision AR (URANTUNE_WL_OT)
+# 🌌 Spatial Vision AR (AirGesture 3D System)
 
-> A computer vision-based interactive system enabling real-time 3D hand tracking, spatial wireframe rendering, and air-writing recognition using OpenCV, MediaPipe, and EasyOCR.
+> High-precision 3D spatial vision and touchless gesture interaction system featuring real-time 3D hand tracking, touchless phalanx virtual keyboard, AR 3D mesh volume rendering, glassmorphic UI, and natural language auto-capitalization.
 
 ---
 
 ## 📌 Overview
 
-**Spatial Vision AR** bridges physical interactions with augmented reality by tracking hands in 3D spatial coordinates using standard camera inputs. Built with **OpenCV**, **MediaPipe**, and **EasyOCR**, the system interprets hand gestures to draw air-written text on a translucent Notepad overlay, render interactive 3D spatial wireframe meshes, and project virtual AR controls seamlessly in real time.
+**Spatial Vision AR** is a cutting-edge computer vision application that transforms regular RGB camera input into a 3D touchless spatial computing interface. Powered by **OpenCV** and **Google MediaPipe**, the system tracks 21 3D hand keypoints per hand to enable intuitive gesture controls, air-typing with two-handed phalanx key selection, 3D wireframe mesh projection, and real-time AR UI overlay elements.
 
 ---
 
 ## ✨ Key Features
 
-- 🖐️ **2D & 3D Landmark Detection** - Tracks 21 hand keypoints ($X, Y, Z$) using Google MediaPipe Hands pre-trained deep learning pipeline.
-- 📐 **Pose & Geometry Wireframe Engine** - Renders 3D spatial meshes, polygon faces, and prints real-time $(X, Y)$ coordinate labels on landmarks.
-- 📑 **Virtual UI & Lined Notepad Card** - Interactive right-side glassmorphic toolbar with Light, Notepad, and Power buttons, plus a left-side notebook paper card.
-- ✍️ **Air-Writing & Optical Character Recognition (OCR)** - Draw text in the air using finger gestures and recognize handwritten words via EasyOCR.
-- ⚡ **High FPS & Low Latency** - Optimized OpenCV frame processing with top-left `( 33 FPS )` status pill.
+- 🖐️ **3D Hand Tracking & Landmark Smoothing** - Extracts 21 keypoint coordinates ($X, Y, Z$) per hand with real-time landmark smoothing and confidence filtering.
+- 📐 **3D Mesh & Wireframe Projection** - Visualizes translucent 3D mesh hulls, fingertip callout tags, and dual-hand volumetric bounding wireframes.
+- ⌨️ **Phalanx Touchless Virtual Keyboard** - Touchless dual-hand character matrix selection (A–Z) with strict 3D depth verification and touch debouncing.
+- ✍️ **Air Drawing & Stroke Recognition** - Captures real-time finger motion strokes and performs character gesture recognition.
+- 📝 **NLP Auto-Capitalization Engine** - Applies automatic sentence-start capitalization, standalone 'i' correction, and natural language formatting.
+- 🖥️ **Glassmorphic AR UI & Lined Notepad** - Interactive HUD featuring FPS counter, status indicators, animated sidebar controls, and virtual lined notepad.
 
 ---
 
-## 🛠️ System Architecture & Computer Vision Pipeline
-
-1. **Palm & Hand Landmark Detection**
-   - MediaPipe Palm Detector locates hand regions in the frame.
-   - Hand Landmark Model places 21 keypoints per hand with 3D depth tracking.
-2. **Mathematical Geometry & 3D Mesh Rendering**
-   - Calculates spatial vectors between keypoints across hands.
-   - Renders semi-transparent wireframe meshes using `cv2.fillPoly` and `cv2.polylines`.
-   - Displays dynamic $(X, Y)$ coordinate tags adjacent to fingertips.
-3. **Air Writing & OCR Engine**
-   - Finger movement trajectories are recorded onto the Notepad overlay.
-   - EasyOCR converts drawn strokes into digital text (e.g. "Hello, My name is P Khang").
-
----
-
-## 📁 Repository Structure
+## 📁 Repository Architecture
 
 ```text
 spatial-vision-ar/
-├── main.py                # Main application entry point (URANTUNE_WL_OT)
-├── src/
-│   ├── config.py          # Color codes, resolution, and window configuration
-│   ├── hand_tracker.py    # MediaPipe 3D landmark extraction & EMA smoothing
-│   ├── wireframe_engine.py# 3D spatial mesh & coordinate rendering
-│   ├── air_scribble.py    # Air-writing canvas & notepad ink logic
-│   ├── ocr_engine.py      # EasyOCR text recognition engine
-│   └── ui_manager.py      # Right toolbar, Light/Notepad/Power buttons & FPS badge
-├── tests/
-│   └── test_tracker.py    # Unit tests suite
-├── requirements.txt       # Dependencies list
-├── .gitignore             # Git ignore rules
-├── LICENSE                # MIT License
-└── README.md              # Documentation
+├── main.py                  # Main entry point and real-time interaction loop
+├── hand_tracker.py          # MediaPipe 3D hand tracking and coordinate extraction
+├── gesture_recognizer.py    # Phalanx touchless typing keyboard and gesture engine
+├── ar_mesh_3d.py            # 3D mesh renderer and spatial wireframe volume projection
+├── ar_ui_renderer.py        # Glassmorphic AR UI, HUD, and notepad renderer
+├── auto_capitalizer.py      # NLP sentence formatting and auto-capitalization engine
+├── air_drawing_ocr.py       # Fingertip stroke capture and air drawing recognition
+├── run_video_test.py        # Test runner and video processing benchmark script
+├── requirements.txt         # Project dependencies list
+├── LICENSE                  # MIT License
+└── README.md                # System documentation
 ```
 
 ---
 
 ## 🚀 Getting Started
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Webcam or video file source
 
 ### Installation
 
@@ -67,7 +55,7 @@ spatial-vision-ar/
    cd spatial-vision-ar
    ```
 
-2. **Create a Virtual Environment**
+2. **Set Up Environment**
    ```bash
    python3 -m venv venv
    source venv/bin/activate
@@ -83,11 +71,16 @@ spatial-vision-ar/
    python main.py
    ```
 
+5. **Run Video Test Benchmark**
+   ```bash
+   python run_video_test.py
+   ```
+
 ---
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Check the [issues page](https://github.com/rabeyanoor/spatial-vision-ar/issues).
+Contributions, issues, and feature requests are welcome!
 
 ---
 
