@@ -165,8 +165,8 @@ def main():
         elif sidebar_open and active_gesture == "IDLE":
             active_gesture = "SIDEBAR OPEN"
 
-        # D. Finger Phalanx Keyboard (Chorded Joint Mapping A-Z)
-        if active_mode in ["PHALANX KEYBOARD", "SPATIAL AR 3D"]:
+        # D. Finger Phalanx Keyboard (Chorded Joint Mapping A-Z - Only Active when Notepad is Open)
+        if active_mode in ["PHALANX KEYBOARD", "SPATIAL AR 3D"] and ui_renderer.show_notepad:
             phalanx_char = recognizer.detect_phalanx_keyboard(left_hand, right_hand, w, h)
             if phalanx_char == '<DELETE_WORD>':
                 text_buffer = text_buffer.rstrip()
@@ -178,7 +178,6 @@ def main():
             elif phalanx_char:
                 text_buffer += phalanx_char
                 text_buffer = AutoCapitalizer.process_notepad_text(text_buffer)
-                ui_renderer.show_notepad = True  # Automatically reveal notepad when typing starts
                 active_gesture = f"PHALANX KEY '{phalanx_char.upper()}'"
 
         # E. Dual-Hand Grid Keypad Matrix Selection (A-Z Virtual Tap)
