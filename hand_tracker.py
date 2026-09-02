@@ -5,28 +5,21 @@ Provides hand detection, 21 landmark extraction, and spatial 3D coordinate utili
 
 import cv2
 import mediapipe as mp
-try:
-    import mediapipe.python.solutions.hands as mp_hands
-    import mediapipe.python.solutions.drawing_utils as mp_draw
-    import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
-except ImportError:
-    mp_hands = mp.solutions.hands
-    mp_draw = mp.solutions.drawing_utils
-    mp_drawing_styles = mp.solutions.drawing_styles
 import math
 import numpy as np
 
 
 class HandTracker:
     def __init__(self, max_num_hands=2, min_detection_confidence=0.7, min_tracking_confidence=0.7):
-        try:
+        if hasattr(mp, 'solutions'):
             self.mp_hands = mp.solutions.hands
             self.mp_draw = mp.solutions.drawing_utils
             self.mp_drawing_styles = mp.solutions.drawing_styles
-        except AttributeError:
-            self.mp_hands = mp_hands
-            self.mp_draw = mp_draw
-            self.mp_drawing_styles = mp_drawing_styles
+        else:
+            from mediapipe.framework.formats import landmark_pb2
+            self.mp_hands = mp.solutions.hands
+            self.mp_draw = mp.solutions.drawing_utils
+            self.mp_drawing_styles = mp.solutions.drawing_styles
 
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
