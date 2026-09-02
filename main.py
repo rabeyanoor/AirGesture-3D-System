@@ -178,6 +178,7 @@ def main():
             elif phalanx_char:
                 text_buffer += phalanx_char
                 text_buffer = AutoCapitalizer.process_notepad_text(text_buffer)
+                ui_renderer.show_notepad = True  # Automatically reveal notepad when typing starts
                 active_gesture = f"PHALANX KEY '{phalanx_char.upper()}'"
 
         # E. Dual-Hand Grid Keypad Matrix Selection (A-Z Virtual Tap)

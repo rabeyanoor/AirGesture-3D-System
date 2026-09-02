@@ -17,7 +17,7 @@ class ARUIRenderer:
         self.sidebar_anim_x = 0.0  # Animation factor (0.0 = closed, 1.0 = fully open)
         self.cursor_blink_time = time.time()
         self.show_cursor = True
-        self.show_notepad = True   # Notepad open by default for immediate feedback
+        self.show_notepad = False  # Notepad closed by default for clean initial camera screen
         self.dark_mode = False     # Dark mode / brightness overlay flag
         self.tile_rects = {}      # Bounding boxes for click interactions
 
