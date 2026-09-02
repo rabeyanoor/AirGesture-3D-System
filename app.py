@@ -6,6 +6,15 @@ Gradio Real-Time Webcam / Video Processor for Touchless Phalanx Typing & AR 3D H
 import os
 os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
 
+try:
+    import spaces
+    @spaces.GPU
+    def _zero_gpu_startup_check():
+        pass
+    _zero_gpu_startup_check()
+except Exception:
+    pass
+
 import cv2
 import numpy as np
 import gradio as gr
