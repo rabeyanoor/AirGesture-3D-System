@@ -1,3 +1,15 @@
+---
+title: AirGesture 3D System
+emoji: 🖐️
+colorFrom: blue
+colorTo: indigo
+sdk: gradio
+sdk_version: 5.9.1
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # 🌌 Spatial Vision AR (AirGesture 3D System)
 
 > High-precision 3D spatial vision and touchless gesture interaction system featuring real-time 3D hand tracking, touchless phalanx virtual keyboard, AR 3D mesh volume rendering, glassmorphic UI, and natural language auto-capitalization.
