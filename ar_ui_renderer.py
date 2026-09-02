@@ -17,13 +17,13 @@ class ARUIRenderer:
         self.sidebar_anim_x = 0.0  # Animation factor (0.0 = closed, 1.0 = fully open)
         self.cursor_blink_time = time.time()
         self.show_cursor = True
-        self.show_notepad = False  # Notepad hidden by default for clean initial screen
+        self.show_notepad = True   # Notepad open by default for immediate feedback
         self.dark_mode = False     # Dark mode / brightness overlay flag
         self.tile_rects = {}      # Bounding boxes for click interactions
 
-    def draw_top_hud(self, frame, fps, mode_name="SPATIAL AR 3D", hand_count=0, active_gesture="IDLE"):
+    def draw_top_hud(self, frame, fps, mode_name="PHALANX KEYBOARD", hand_count=0, active_gesture="IDLE"):
         """
-        Render clean minimal FPS badge on top-left and title header at top center.
+        Render clean minimal FPS badge on top-left, mode status, and title header.
         """
         h, w, _ = frame.shape
         overlay = frame.copy()
@@ -33,20 +33,33 @@ class ARUIRenderer:
         cv2.rectangle(overlay, (25, 20), (120, 48), (40, 40, 45), -1)
         cv2.rectangle(overlay, (25, 20), (120, 48), (120, 120, 130), 1, cv2.LINE_AA)
 
-        # 2. Top-Center Minimal Title Header
-        title_text = "URANTUNE_WL_OT"
+        # 2. Top-Center Minimal Title Header & Active Mode Status
+        title_text = f"URANTUNE_WL_OT | MODE: {mode_name}"
         tw, th = cv2.getTextSize(title_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0]
         tx = (w - tw) // 2
-        cv2.rectangle(overlay, (tx - 15, 15), (tx + tw + 15, 40), (20, 20, 25), -1)
-        cv2.rectangle(overlay, (tx - 15, 15), (tx + tw + 15, 40), (80, 80, 90), 1, cv2.LINE_AA)
+        cv2.rectangle(overlay, (tx - 15, 15), (tx + tw + 15, 42), (20, 20, 25), -1)
+        cv2.rectangle(overlay, (tx - 15, 15), (tx + tw + 15, 42), (0, 200, 255), 1, cv2.LINE_AA)
 
-        alpha = 0.55
+        # 3. Active Gesture Action Pill (Top-Right HUD)
+        if active_gesture != "IDLE":
+            gw, gh = cv2.getTextSize(active_gesture, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0]
+            gx = w - gw - 40
+            cv2.rectangle(overlay, (gx - 10, 15), (gx + gw + 10, 42), (0, 180, 80), -1)
+            cv2.rectangle(overlay, (gx - 10, 15), (gx + gw + 10, 42), (255, 255, 255), 1, cv2.LINE_AA)
+
+        alpha = 0.65
         frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
         cv2.putText(frame, fps_text, (38, 38),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (220, 220, 230), 1, cv2.LINE_AA)
         cv2.putText(frame, title_text, (tx, 32),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (230, 230, 240), 1, cv2.LINE_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+
+        if active_gesture != "IDLE":
+            gw, gh = cv2.getTextSize(active_gesture, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0]
+            gx = w - gw - 40
+            cv2.putText(frame, active_gesture, (gx, 32),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
         return frame
 
