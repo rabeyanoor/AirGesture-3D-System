@@ -79,7 +79,7 @@ def main():
     ui_renderer = ARUIRenderer()
 
     # Initial State Variables
-    text_buffer = "Hello My name is"
+    text_buffer = ""
     active_mode = "PHALANX KEYBOARD"  # Modes: "PHALANX KEYBOARD", "SPATIAL AR 3D", "GRID KEYBOARD", "AIR DRAW"
     sidebar_open = False
     active_gesture = "IDLE"
