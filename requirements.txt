@@ -3,3 +3,4 @@ mediapipe==0.10.9
 protobuf<4.26.0
 numpy<2.0.0
 gradio>=5.0.0
+pillow>=10.0.0

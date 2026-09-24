@@ -21,6 +21,10 @@ class AutoCapitalizer:
         if not raw_text or len(raw_text) == 0:
             return raw_text
 
+        # Standalone 'i' -> 'I' first (a lone air-written "l" is the pronoun too), so a sentence-initial
+        # "l" becomes "I" rather than "L"
+        raw_text = re.sub(r'\b[ilL](?=[\s.,!?])', 'I', raw_text)
+
         # 1. Capitalize first non-space character of text
         first_char_index = 0
         while first_char_index < len(raw_text) and raw_text[first_char_index] == ' ':
@@ -40,8 +44,6 @@ class AutoCapitalizer:
             raw_text
         )
 
-        # 3. Capitalize standalone 'i' -> 'I'
-        raw_text = re.sub(r'\bi\b', 'I', raw_text)
 
         return raw_text
 

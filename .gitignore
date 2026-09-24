@@ -8,3 +8,8 @@ venv/
 *.log
 test.sh
 *.sh
+output_demo.mp4
+demo_frames/
+web/.cert/
+recordings/
+.cert/

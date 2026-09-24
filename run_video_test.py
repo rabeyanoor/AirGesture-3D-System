@@ -1,78 +1,81 @@
 """
-Test script to process video_2026-08-28_01-24-08.mp4 and export demo frames.
+Offline test runner: pushes a recorded video through the full AR pipeline and writes
+an annotated output video plus a few sample frames.
+
+Usage:
+    python run_video_test.py [input.mp4] [--out output_demo.mp4] [--frames 0] [--notepad]
 """
 
-import cv2
+import argparse
+import glob
+import os
 import time
-from hand_tracker import HandTracker
-from gesture_recognizer import GestureRecognizer
-from ar_mesh_3d import ARMesh3D
-from air_drawing_ocr import AirDrawingOCR
-from auto_capitalizer import AutoCapitalizer
-from ar_ui_renderer import ARUIRenderer
+
+import cv2
+
+from pipeline import SpatialVisionPipeline
+
+
+def default_input():
+    videos = sorted(glob.glob("video_*.mp4"))
+    return videos[-1] if videos else "input.mp4"
 
 
 def test_video_processing():
-    cap = cv2.VideoCapture("video_2026-08-28_01-24-08.mp4")
+    parser = argparse.ArgumentParser(description="Process a video file through the AR pipeline")
+    parser.add_argument("input", nargs="?", default=default_input())
+    parser.add_argument("--out", default="output_demo.mp4")
+    parser.add_argument("--frames", type=int, default=0, help="Max frames to process (0 = all)")
+    parser.add_argument("--notepad", action="store_true", help="Start with the notepad open")
+    parser.add_argument("--samples-dir", default="demo_frames")
+    args = parser.parse_args()
+
+    cap = cv2.VideoCapture(args.input)
     if not cap.isOpened():
-        print("Error opening video")
+        print(f"Error opening video: {args.input}")
         return
 
-    tracker = HandTracker()
-    recognizer = GestureRecognizer()
-    mesh_renderer = ARMesh3D()
-    air_ocr = AirDrawingOCR()
-    ui_renderer = ARUIRenderer()
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    limit = args.frames or total
 
-    text_buffer = "Hello My name is"
-    sidebar_open = False
+    writer = cv2.VideoWriter(args.out, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+    os.makedirs(args.samples_dir, exist_ok=True)
 
+    pipeline = SpatialVisionPipeline(debug_hud=True)
+    pipeline.ui_renderer.show_notepad = args.notepad
+
+    print(f"Processing {args.input} ({w}x{h}, {total} frames @ {fps:.1f} fps)...")
+    sample_every = max(1, limit // 8)
+    start = time.time()
     frame_idx = 0
-    saved_count = 0
+    gestures = {}
 
-    print("Processing video_2026-08-28_01-24-08.mp4...")
-
-    while cap.isOpened() and frame_idx < 150:
+    while frame_idx < limit:
         ret, frame = cap.read()
         if not ret:
             break
 
+        out = pipeline.process(frame)
+        writer.write(out)
+        if pipeline.active_gesture != "IDLE":
+            gestures[pipeline.active_gesture] = gestures.get(pipeline.active_gesture, 0) + 1
+
+        if frame_idx % sample_every == 0:
+            cv2.imwrite(os.path.join(args.samples_dir, f"frame_{frame_idx:04d}.jpg"), out)
         frame_idx += 1
-        h, w, c = frame.shape
-
-        hands_data, left_hand, right_hand = tracker.process(frame)
-        hand_count = len(hands_data)
-
-        active_gesture = "IDLE"
-
-        # 3D AR Mesh & Wireframe
-        if hand_count == 1:
-            frame = mesh_renderer.draw_fingertip_polygon(frame, hands_data[0])
-        elif hand_count >= 2:
-            frame = mesh_renderer.draw_fingertip_polygon(frame, left_hand)
-            frame = mesh_renderer.draw_fingertip_polygon(frame, right_hand)
-            frame = mesh_renderer.draw_dual_hand_3d_wireframe(frame, left_hand, right_hand)
-
-        # Sidebar trigger check
-        sidebar_open = recognizer.check_sidebar_trigger(hands_data, w)
-        if sidebar_open:
-            active_gesture = "SIDEBAR OPEN"
-
-        # Render Overlays
-        formatted_text = AutoCapitalizer.format_text(text_buffer)
-        frame = ui_renderer.draw_notepad_overlay(frame, formatted_text)
-        frame = ui_renderer.draw_sidebar(frame, sidebar_open)
-        frame = ui_renderer.draw_top_hud(frame, 30.0, "SPATIAL AR 3D", hand_count, active_gesture)
-
-        # Save sample frame snapshots for validation
-        if frame_idx in [10, 40, 70, 110, 140]:
-            out_name = f"/tmp/output_frame_{frame_idx:03d}.jpg"
-            cv2.imwrite(out_name, frame)
-            saved_count += 1
-            print(f"Saved snapshot: {out_name}")
 
     cap.release()
-    print(f"Successfully processed {frame_idx} frames, saved {saved_count} snapshot images!")
+    writer.release()
+
+    elapsed = time.time() - start
+    print(f"Done: {frame_idx} frames in {elapsed:.1f}s ({frame_idx / max(elapsed, 1e-5):.1f} fps)")
+    print(f"Output video: {args.out} | Sample frames: {args.samples_dir}/")
+    print(f"Final notepad text: {pipeline.text_buffer!r}")
+    for g, n in sorted(gestures.items(), key=lambda kv: -kv[1]):
+        print(f"  {g}: {n} frames")
 
 
 if __name__ == "__main__":

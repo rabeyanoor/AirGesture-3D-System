@@ -1,0 +1,8 @@
+# Local desktop app (main.py) - needs an OpenCV build with GUI support for the preview window.
+# requirements.txt stays on opencv-python-headless for the Hugging Face Space.
+opencv-contrib-python>=4.8.0
+mediapipe==0.10.9
+protobuf<4.26.0
+numpy<2.0.0
+pillow>=10.0.0
+gradio>=5.0.0

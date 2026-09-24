@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#101114">
+  <title>AirGesture 3D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #101114;
+      --panel: rgba(28, 29, 34, 0.86);
+      --text: #f1f2f4;
+      --muted: #a9adb6;
+      --accent: #4aa8ff;
+      --danger: #ff6b6b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+      font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    #stage { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: block; }
+    video { display: none; }
+
+    #start {
+      position: fixed; inset: 0; display: grid; place-items: center; padding: 16px;
+      background: radial-gradient(circle at 50% 30%, #1d2230 0%, var(--bg) 70%);
+    }
+    .card {
+      width: min(420px, 100%); background: var(--panel); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px; padding: 24px 20px; text-align: center;
+    }
+    .card h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: 0.3px; }
+    .card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+    .card ul { text-align: left; margin: 0 0 18px; padding-left: 18px; color: var(--muted); font-size: 13px; }
+    .card li { margin: 3px 0; }
+    button {
+      font: inherit; color: var(--text); background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 10px 18px; cursor: pointer;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 600; width: 100%; padding: 13px 18px; }
+    button:disabled { opacity: 0.6; }
+    button.secondary { width: 100%; margin-top: 10px; padding: 12px 18px; }
+    #recBtn.recording { background: var(--danger); border-color: var(--danger); color: #1a0505; font-weight: 600; }
+    #msg { min-height: 20px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+    #msg.error { color: var(--danger); }
+
+    #toolbar {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: calc(12px + env(safe-area-inset-bottom)); display: none; gap: 8px;
+      flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100vw - 24px);
+    }
+    #toolbar button { padding: 8px 14px; font-size: 13px; background: rgba(20,20,24,0.55); backdrop-filter: blur(6px); }
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <video id="video" playsinline muted></video>
+
+  <div id="start">
+    <div class="card">
+      <h1>AirGesture 3D</h1>
+      <p>Hand-tracked AR notepad, liquid box and Rubik's cube. Tracking runs on this device.</p>
+      <ul>
+        <li>Move a hand to the right edge (or tap the right handle) to open the sidebar</li>
+        <li>Pinch inside a box and drag to rotate it; rest an open palm on it (or make a fist) to move it</li>
+        <li>Pinch with both hands to resize; press it from both sides with open palms to burst it</li>
+        <li>Rubik's cube: swipe with only the index finger to turn a layer</li>
+        <li>Notepad: hold 2–3 fingers together and write letters in the air; spread them to stop (line → = space, line ← = delete)</li>
+        <li>Touch works too: drag, pinch, long-press to move, double-tap a box to burst it</li>
+        <li>Record saves the screen (camera + effects) as a video</li>
+      </ul>
+      <button id="startBtn" class="primary">Start (front camera)</button>
+      <button id="startBackBtn" class="secondary">Start with back camera</button>
+      <div id="msg"></div>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <button id="flipBtn" type="button">Switch camera</button>
+    <button id="recBtn" type="button">&#9679; Record</button>
+    <button id="scrambleBtn" type="button" hidden>Scramble</button>
+    <button id="clearBtn" type="button">Clear text</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
